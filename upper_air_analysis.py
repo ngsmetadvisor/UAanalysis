@@ -917,7 +917,9 @@ if no_data:
                     + "&nbsp;&nbsp;" + "&nbsp;&nbsp;".join(no_data))
 
 if warnings:
+    pass
 else:
+    pass
 
 
 # ── Cell 5 . Parse METAR fields ───────────────────────────────
@@ -1196,6 +1198,7 @@ if missing:
 
     _good_rows = ''.join(_station_badge(icao) for icao in _all_stations)
 else:
+    pass
 
 
 print(f'  SLP: {slp_count}  Wind: {wind_count}  Temp: {temp_count}')
@@ -1607,6 +1610,7 @@ _fv_df = pd.DataFrame([{
 } for r in fv_records])
 
 if _fv_df.empty:
+    pass
 else:
     grad_cols = [c for c in ['Temp(C)','Dew(C)'] if c in _fv_df.columns]
     slp_cols  = [c for c in ['SLP(hPa)']         if c in _fv_df.columns]
@@ -4695,6 +4699,7 @@ else:
     pass  # only reaches here if SKIP is False and no exception
 
 if not SKIP:
+    pass
 #     %matplotlib inline
     import matplotlib.pyplot as plt
 import matplotlib.patheffects as pe
