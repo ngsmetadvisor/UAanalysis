@@ -584,51 +584,7 @@ for _i, (_svg_str, _sw, _sh, _rec) in enumerate(_svg_parts_list):
 
 _out.append('</svg>')
 
-display(HTML('''
-<div style="font-family:Courier New,monospace;font-size:12px;background:#f0f4ff;
-            border:1px solid #1a4a8a;border-radius:8px;padding:14px 20px;
-            max-width:640px;margin:10px 0;color:#1a2030">
-  <div style="font-size:14px;font-weight:bold;color:#1a4a8a;
-              border-bottom:1px solid #aac;padding-bottom:6px;margin-bottom:10px">
-    📡 Station Model Key
-  </div>
-  <table style="border-collapse:collapse;width:100%">
-    <tr><td style="color:#888;padding:2px 8px 2px 0;white-space:nowrap">Top-left</td>
-        <td>Temperature (°C)</td></tr>
-    <tr><td style="color:#888;padding:2px 8px 2px 0;white-space:nowrap">Left</td>
-        <td>Visibility (SM) + Present Weather</td></tr>
-    <tr><td style="color:#888;padding:2px 8px 2px 0;white-space:nowrap">Bottom-left</td>
-        <td>Dewpoint (°C)</td></tr>
-    <tr><td style="color:#888;padding:2px 8px 2px 0;white-space:nowrap">Top-right</td>
-        <td>SLP last 3 digits &nbsp;
-            <span style="color:#555">132 = 1013.2 hPa &nbsp;|&nbsp; 986 = 998.6 hPa</span>
-        </td></tr>
-    <tr><td style="color:#888;padding:2px 8px 2px 0;white-space:nowrap;vertical-align:top">
-            Right</td>
-        <td>Pressure change (tenths hPa) + Tendency<br>
-          <span style="display:inline-block;margin-top:4px">
-            <b>/</b> rising &nbsp; <b>\\</b> falling &nbsp; <b>—</b> steady &nbsp;
-            <b>∧</b> rise→fall &nbsp; <b>V</b> fall→rise &nbsp;
-            <b>⌐</b> rise→steady &nbsp; <b>∟</b> fall→steady
-          </span>
-        </td></tr>
-    <tr><td style="color:#888;padding:2px 8px 2px 0;white-space:nowrap">Circle</td>
-        <td>Sky cover oktas 0–8 &nbsp;
-            <span style="color:#555">Triangle = no sky sensor</span></td></tr>
-    <tr><td style="color:#888;padding:2px 8px 2px 0;white-space:nowrap">Barb</td>
-        <td>Wind direction (from) + speed &nbsp;
-            <span style="color:#555">½=5kt &nbsp; full=10kt &nbsp; pennant=50kt</span>
-        </td></tr>
-  </table>
-  <div style="margin-top:10px;border-top:1px solid #aac;padding-top:8px;color:#444">
-    <b>Examples:</b><br>
-    <span style="color:#c00">-10 \\</span> &nbsp;→ fell 1.0 hPa, still falling<br>
-    <span style="color:#080">+28 /</span> &nbsp;→ rose 2.8 hPa, still rising
-  </div>
-</div>
-'''))
 
-display(SVG(''.join(_out)))
 
 # ── Cell 3 . Load station list from orangecore.net ────────────
 import csv, io, math as _math
@@ -897,18 +853,6 @@ def fetch_all_metars(station_codes, chunk_size=25, max_workers=6, hours=12):
         f'Chunk {i+1}: {", ".join(c)}</div>'
         for i, c in enumerate(chunks)
     )
-    display(HTML(f'''
-    <details style="margin:6px 0;font-family:monospace;font-size:12px;">
-      <summary style="cursor:pointer;color:#1a4a8a;font-weight:bold;">
-        Fetching {len(station_codes)} stations in {len(chunks)} chunks
-        ({max_workers} workers, up to 3 retries) — click to expand
-      </summary>
-      <div style="margin-top:6px;padding:8px;background:#f8f8f8;
-                  border:1px solid #ddd;border-radius:4px;max-height:200px;overflow-y:auto;">
-        {chunk_lines}
-      </div>
-    </details>
-    '''))
 
     raw_parts = []; failed_codes = []; done = 0
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as ex:
@@ -973,19 +917,7 @@ if no_data:
                     + "&nbsp;&nbsp;" + "&nbsp;&nbsp;".join(no_data))
 
 if warnings:
-    display(HTML(f'''
-    <div style="background:#ffb3c6;border:4px solid #cc0000;border-radius:10px;
-                padding:28px 32px;margin:16px 0;">
-      <div style="color:#cc0000;font-size:32px;font-family:monospace;margin-bottom:16px;">⚠ METAR FETCH WARNING</div>
-      {"".join(f'<div style="color:#990000;font-size:18px;font-family:monospace;margin-bottom:12px;line-height:1.6;">{w}</div>' for w in warnings)}
-    </div>'''))
 else:
-    display(HTML('''
-    <div style="background:#b6f5c8;border:4px solid #1a7a3a;border-radius:10px;
-                padding:28px 32px;margin:16px 0;">
-      <div style="color:#145c2c;font-size:32px;font-family:monospace;margin-bottom:10px;">✔ ALL STATIONS FETCHED SUCCESSFULLY</div>
-      <div style="color:#1a7a3a;font-size:20px;font-family:monospace;">All stations returned data — no warnings.</div>
-    </div>'''))
 
 
 # ── Cell 5 . Parse METAR fields ───────────────────────────────
@@ -1187,30 +1119,6 @@ if missing:
         f'<td style="padding:3px 14px;color:#7a5000;font-family:monospace;">{", ".join(gaps)}</td></tr>'
         for icao, gaps in sorted(missing.items())
     )
-    display(HTML(f'''
-    <div style="background:#fff3b0;border:4px solid #e6a800;border-radius:10px;padding:24px 28px;margin:16px 0;">
-      <div style="color:#b37700;font-size:28px;font-family:monospace;margin-bottom:6px;">⚠ MISSING TIMESTEPS DETECTED</div>
-      <div style="color:#7a5000;font-size:16px;font-family:monospace;margin-bottom:14px;">
-        {len(missing)} stations affected &nbsp;|&nbsp; {total_missing} total missing timesteps
-        &nbsp;|&nbsp; {len(all_timestamps)} timesteps expected per station
-      </div>
-      <button onclick="var t=document.getElementById('missing-table');var b=document.getElementById('missing-btn');
-          if(t.style.display==='none'){{t.style.display='block';b.textContent='▲ Collapse';}}
-          else{{t.style.display='none';b.textContent='▼ Show affected stations';}}"
-        id="missing-btn" style="font-family:monospace;font-size:13px;padding:4px 14px;
-        background:#ffe066;border:1px solid #e6a800;border-radius:4px;color:#5a3a00;cursor:pointer;margin-bottom:10px;">
-        ▼ Show affected stations
-      </button>
-      <div id="missing-table" style="display:none;">
-        <table style="border-collapse:collapse;width:100%;">
-          <tr style="background:#ffe066;">
-            <th style="padding:4px 14px;text-align:left;color:#5a3a00;font-family:monospace;">ICAO</th>
-            <th style="padding:4px 14px;text-align:center;color:#5a3a00;font-family:monospace;"># Missing</th>
-            <th style="padding:4px 14px;text-align:left;color:#5a3a00;font-family:monospace;">Missing Timesteps</th>
-          </tr>{rows}
-        </table>
-      </div>
-    </div>'''))
     _all_stations  = sorted(set(d['icao'] for d in metar_records))
     _good_stations = sorted(set(d['icao'] for d in metar_records) - set(missing.keys()))
     # Build latest record per station for tooltip
@@ -1287,24 +1195,7 @@ if missing:
         )
 
     _good_rows = ''.join(_station_badge(icao) for icao in _all_stations)
-    display(HTML(f'''
-    <div style="background:#b6f5c8;border:4px solid #1a7a3a;border-radius:10px;padding:24px 28px;margin:16px 0;overflow:visible;">
-      <div style="color:#145c2c;font-size:24px;font-family:monospace;margin-bottom:8px;">✔ {len(_all_stations)} STATIONS WITH DATA &nbsp;|&nbsp; {len(_good_stations)} COMPLETE</div>
-      <div style="color:#1a7a3a;font-size:13px;font-family:monospace;margin-bottom:10px;">
-        {len(all_timestamps)} timesteps &nbsp;|&nbsp; {len(metar_records)} total records &nbsp;|&nbsp;
-        SLP: {slp_count} &nbsp; Wind: {wind_count} &nbsp; Temp: {temp_count}
-      </div>
-      <div style="line-height:2.2;overflow:visible;">{_good_rows}</div>
-    </div>'''))
 else:
-    display(HTML(f'''
-    <div style="background:#b6f5c8;border:4px solid #1a7a3a;border-radius:10px;padding:24px 28px;margin:16px 0;">
-      <div style="color:#145c2c;font-size:28px;font-family:monospace;margin-bottom:8px;">✔ ALL STATIONS HAVE COMPLETE TIMESTEPS</div>
-      <div style="color:#1a7a3a;font-size:18px;font-family:monospace;">
-        {len(all_timestamps)} timesteps &nbsp;|&nbsp; {len(metar_records)} total records &nbsp;|&nbsp;
-        SLP: {slp_count} &nbsp; Wind: {wind_count} &nbsp; Temp: {temp_count}
-      </div>
-    </div>'''))
 
 
 print(f'  SLP: {slp_count}  Wind: {wind_count}  Temp: {temp_count}')
@@ -1362,25 +1253,6 @@ _uid  = 'metartbl'
 _short_html = _style_df(_df.head(_ROWS), f'METARs + EC Model — showing {_ROWS} of {len(_df)} records')
 _full_html  = _style_df(_df,             f'METARs + EC Model — {len(_df)} records total')
 
-display(HTML(f'''
-<div id="{_uid}-short">
-  {_short_html}
-  <button onclick="document.getElementById('{_uid}-short').style.display='none';
-      document.getElementById('{_uid}-full').style.display='block';"
-    style="margin-top:6px;padding:4px 14px;font-family:monospace;font-size:11px;
-    cursor:pointer;border:1px solid #aaa;border-radius:4px;background:#e8f0fe;color:#1a3a6a;">
-    ▼ Show all {len(_df)} rows
-  </button>
-</div>
-<div id="{_uid}-full" style="display:none">
-  {_full_html}
-  <button onclick="document.getElementById('{_uid}-full').style.display='none';
-      document.getElementById('{_uid}-short').style.display='block';"
-    style="margin-top:6px;padding:4px 14px;font-family:monospace;font-size:11px;
-    cursor:pointer;border:1px solid #aaa;border-radius:4px;background:#e8f0fe;color:#1a3a6a;">
-    ▲ Collapse
-  </button>
-</div>'''))
 
 
 # ── Cell 5b . Compute pressure tendency from 3-hr SLP history ─
@@ -1564,18 +1436,6 @@ _slp_5b        = sum(1 for d in metar_records if d['slp'])
 _wind_5b       = sum(1 for d in metar_records if d['wind_dir'] is not None)
 _temp_5b       = sum(1 for d in metar_records if d['temp'] is not None)
 
-display(HTML(f'''
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-<div style="background:#b6f5c8;border:4px solid #1a7a3a;border-radius:10px;padding:24px 28px;margin:16px 0;overflow:visible;">
-  <div style="color:#145c2c;font-size:24px;font-family:monospace;margin-bottom:8px;">
-    ✔ {len(_all_stations_5b)} STATIONS WITH DATA &nbsp;|&nbsp; {_good_count_5b} COMPLETE TENDENCY
-  </div>
-  <div style="color:#1a7a3a;font-size:13px;font-family:monospace;margin-bottom:10px;">
-    {len(_all_ts_5b)} timesteps &nbsp;|&nbsp; {len(metar_records)} total records &nbsp;|&nbsp;
-    SLP: {_slp_5b} &nbsp; Wind: {_wind_5b} &nbsp; Temp: {_temp_5b}
-  </div>
-  <div style="line-height:2.2;overflow:visible;">{_badge_rows_5b}</div>
-</div>'''))
 
 # ── Cell 5c . Fetch Fort Vermillion (71024) from ogimet ───────────────────────
 import requests, re
@@ -1747,7 +1607,6 @@ _fv_df = pd.DataFrame([{
 } for r in fv_records])
 
 if _fv_df.empty:
-    display(HTML(f'<p style="font-family:monospace;color:#888;">Fort Vermillion (71024 / {FV_ICAO}) — no matching obs</p>'))
 else:
     grad_cols = [c for c in ['Temp(C)','Dew(C)'] if c in _fv_df.columns]
     slp_cols  = [c for c in ['SLP(hPa)']         if c in _fv_df.columns]
@@ -1755,7 +1614,6 @@ else:
     if grad_cols: _s = _s.background_gradient(subset=grad_cols, cmap='RdYlBu_r')
     if slp_cols:  _s = _s.background_gradient(subset=slp_cols,  cmap='coolwarm')
     _s = _s.format(na_rep='—', precision=1)
-    display(HTML(_s.to_html()))
 
 
 #####################################################
@@ -1946,18 +1804,6 @@ _slp_5b        = sum(1 for d in metar_records if d['slp'])
 _wind_5b       = sum(1 for d in metar_records if d['wind_dir'] is not None)
 _temp_5b       = sum(1 for d in metar_records if d['temp'] is not None)
 
-display(HTML(f'''
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-<div style="background:#b6f5c8;border:4px solid #1a7a3a;border-radius:10px;padding:24px 28px;margin:16px 0;overflow:visible;">
-  <div style="color:#145c2c;font-size:24px;font-family:monospace;margin-bottom:8px;">
-    ✔ {len(_all_stations_5b)} STATIONS WITH DATA &nbsp;|&nbsp; {_good_count_5b} COMPLETE TENDENCY
-  </div>
-  <div style="color:#1a7a3a;font-size:13px;font-family:monospace;margin-bottom:10px;">
-    {len(_all_ts_5b)} timesteps &nbsp;|&nbsp; {len(metar_records)} total records &nbsp;|&nbsp;
-    SLP: {_slp_5b} &nbsp; Wind: {_wind_5b} &nbsp; Temp: {_temp_5b}
-  </div>
-  <div style="line-height:2.2;overflow:visible;">{_badge_rows_5b}</div>
-</div>'''))
 
 # ── Cell UA-1 . Upper-air station list ────────────────────────────────────
 print('--- Upper air station list and location ---')
@@ -2190,46 +2036,10 @@ def fetch_all(stations, hours=UA_HOURS, workers=UA_WORKERS):
     stat_id = 'ua2-stat'
     log_id  = 'ua2-log'
 
-    display(HTML(f'''
-    <div style="font-family:Courier New,monospace;font-size:12px;
-                background:#f8f8f8;border:1px solid #ccc;border-radius:8px;
-                padding:14px 18px;margin:8px 0;">
-      <div style="font-weight:bold;color:#1a4a8a;margin-bottom:8px;">
-        ⬆ Fetching Wyoming soundings &mdash;
-        {len(stations)} stations &times; {len(hours)} hours = {total} requests
-        ({workers} parallel workers)
-      </div>
-      <div style="background:#e0e0e0;border-radius:4px;height:16px;width:100%;margin-bottom:6px;">
-        <div id="{bar_id}" style="background:#1a7a3a;height:16px;border-radius:4px;width:0%;
-             transition:width 0.25s;"></div>
-      </div>
-      <div id="{stat_id}" style="color:#555;font-size:11px;margin-bottom:4px;">
-        Initialising...
-      </div>
-      <details>
-        <summary style="cursor:pointer;color:#1a4a8a;font-size:11px;">▶ Live log</summary>
-        <div id="{log_id}" style="max-height:160px;overflow-y:auto;margin-top:4px;
-             padding:5px;background:#fff;border:1px solid #ddd;border-radius:4px;
-             font-size:10px;line-height:1.5;"></div>
-      </details>
-    </div>
-    '''))
 
     def _ui(msg, color='#333'):
         pct  = int(done / total * 100) if total else 0
         safe = msg.replace('\\', '\\\\').replace("'", "\\'").replace('\n', ' ')
-        display(Javascript(f'''
-        (function(){{
-          var b=document.getElementById('{bar_id}');
-          var s=document.getElementById('{stat_id}');
-          var l=document.getElementById('{log_id}');
-          if(b) b.style.width='{pct}%';
-          if(s) s.textContent='{done}/{total} ({pct}%)  ✔ {ok} retrieved  ✘ {len(failed)} failed';
-          if(l){{var d=document.createElement('div');
-                 d.style.color='{color}';d.textContent='{safe}';
-                 l.appendChild(d);l.scrollTop=l.scrollHeight;}}
-        }})();
-        '''))
 
     # Pass 1
     with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as ex:
@@ -2352,29 +2162,6 @@ def fetch_all(stations, hours=UA_HOURS, workers=UA_WORKERS):
 
     col = '#1a7a3a' if not failed else '#cc4400'
     bg  = '#b6f5c8' if not failed else '#ffe8d6'
-    display(HTML(f'''
-    <div style="font-family:Courier New,monospace;font-size:13px;border:3px solid {col};
-                border-radius:8px;padding:10px 16px;margin:8px 0;background:{bg};">
-      <b style="color:{col};">
-        {"✔" if not failed else "⚠"}
-        {ok}/{len(tasks)//len(hours)} stations retrieved &mdash;
-        {len(all_rows)} total pressure levels
-        {f"&mdash; {len(failed)} station-hours missing" if failed else ""}
-      </b>
-    </div>
-    <div style="margin:8px 0;font-family:Courier New,monospace;font-size:11px">{_legend}</div>
-    <div style="max-height:400px;overflow-y:auto;border:1px solid #ccc;border-radius:6px;">
-    <table style="border-collapse:collapse;font-size:11px;width:100%">
-      <thead style="position:sticky;top:0;background:#f0f4ff">
-        <tr>
-          <th style="text-align:left;padding:4px 8px">Station</th>
-          {_hrs_header}
-        </tr>
-      </thead>
-      <tbody>{_rows_html}</tbody>
-    </table>
-    </div>
-    '''))
     return all_rows, _status
 
 
@@ -2446,28 +2233,6 @@ def _style_raw(df):
 _sh = _style_raw(ua_raw_df.head(_N)).to_html()
 _fl = _style_raw(ua_raw_df.head(500)).to_html()  # cap at 500 rows for display
 
-display(HTML(f'''
-<div id="{_uid}-s">
-  {_sh}
-  <button onclick="document.getElementById('{_uid}-s').style.display='none';
-                   document.getElementById('{_uid}-f').style.display='block';"
-    style="margin-top:5px;padding:3px 12px;font-family:monospace;font-size:11px;
-           cursor:pointer;border:1px solid #aaa;border-radius:4px;
-           background:#e8f0fe;color:#1a3a6a;">
-    ▼ Show first 500 of {len(ua_raw_df)} rows
-  </button>
-</div>
-<div id="{_uid}-f" style="display:none">
-  {_fl}
-  <button onclick="document.getElementById('{_uid}-f').style.display='none';
-                   document.getElementById('{_uid}-s').style.display='block';"
-    style="margin-top:5px;padding:3px 12px;font-family:monospace;font-size:11px;
-           cursor:pointer;border:1px solid #aaa;border-radius:4px;
-           background:#e8f0fe;color:#1a3a6a;">
-    ▲ Collapse
-  </button>
-</div>
-'''))
 
 
 
@@ -2765,30 +2530,6 @@ if not SKIP:
           </span>
         </div>'''
 
-        display(HTML(f'''
-        <div style="font-family:Courier New,monospace;font-size:12px;margin:8px 0">
-          <b style="color:#1a4a8a">Station Failure Tracker</b>
-          &mdash; threshold: suggest remove after
-          <b style="color:#cc0000">{SUGGEST_REMOVE_DAYS} consecutive fail days</b>
-          &mdash; log: <code>{FAILURE_LOG_PATH}</code>
-        </div>
-        <div style="max-height:400px;overflow-y:auto;border:1px solid #ccc;border-radius:6px;">
-        <table style="border-collapse:collapse;font-size:11px;width:100%">
-          <thead style="position:sticky;top:0;background:#f0f4ff">
-            <tr>
-              <th style="text-align:left;padding:4px 10px">Station</th>
-              <th style="padding:4px 10px">Consec. Fail Days</th>
-              <th style="padding:4px 10px">Total Fails</th>
-              <th style="padding:4px 10px">Total OK</th>
-              <th style="padding:4px 10px">Last OK</th>
-              <th style="padding:4px 10px">Suggestion</th>
-            </tr>
-          </thead>
-          <tbody>{_rows_html}</tbody>
-        </table>
-        </div>
-        {_suggest_box}
-        '''))
 
     except _Skip:
         print("⚠ Station failure tracker: timed out (>10s) — skipping")
@@ -3050,22 +2791,6 @@ _summary = (
     .query('icao.str.startswith("ECM")', engine='python')
 )
 
-display(HTML(f'''
-<div style="font-family:Courier New,monospace;font-size:12px;
-            border:2px solid #1a7a3a;border-radius:8px;
-            padding:10px 16px;background:#e8f8ee;margin:8px 0;">
-  <b style="color:#1a5c1a;">✔ EC Model upper-air data merged into ua_raw_df</b><br>
-  <span style="color:#555;">
-    {ec_ua_df["icao"].nunique()} virtual stations &mdash;
-    {len(EC_PRESSURE_LEVELS)} pressure levels &mdash;
-    {ec_ua_df["valid_time"].nunique()} valid times &mdash;
-    {len(ec_ua_df)} total rows
-  </span>
-</div>
-{_summary.to_html(index=False, border=0,
-    classes="",
-    table_id="ec-ua-summary")}
-'''))
 
 # ── Cell UA-3 . Standard-level summary table (850/700/500/250 hPa) ────────
 print('--- Upper Air station - Data extract ---')
@@ -3201,28 +2926,6 @@ if 'ua_raw_df' in globals():
 
     _sh = _style_summary(ua_summary_df.head(10)).to_html()
     _fl = _style_summary(ua_summary_df).to_html()
-    display(HTML(f'''
-    <div id="uas-s">
-      {_sh}
-      <button onclick="document.getElementById('uas-s').style.display='none';
-                       document.getElementById('uas-f').style.display='block';"
-        style="margin-top:5px;padding:3px 12px;font-family:monospace;font-size:11px;
-               cursor:pointer;border:1px solid #aaa;border-radius:4px;
-               background:#e8f0fe;color:#1a3a6a;">
-        ▼ Show all {len(ua_summary_df)} rows
-      </button>
-    </div>
-    <div id="uas-f" style="display:none">
-      {_fl}
-      <button onclick="document.getElementById('uas-f').style.display='none';
-                       document.getElementById('uas-s').style.display='block';"
-        style="margin-top:5px;padding:3px 12px;font-family:monospace;font-size:11px;
-               cursor:pointer;border:1px solid #aaa;border-radius:4px;
-               background:#e8f0fe;color:#1a3a6a;">
-        ▲ Collapse
-      </button>
-    </div>
-    '''))
 else:
     print('❌ Error: ua_raw_df not found. Please run Cell UA-2 first.')
 
@@ -4964,7 +4667,7 @@ _buf = _io.BytesIO()
 _fig_demo.savefig(_buf, format='png', dpi=130, bbox_inches='tight')
 plt.close(_fig_demo)
 _buf.seek(0)
-_display(_Image(_buf.read()))
+# (preview skipped in headless mode)
 
 
 print('\n  W/C diagnostic:')
