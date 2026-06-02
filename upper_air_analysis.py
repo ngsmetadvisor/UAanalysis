@@ -7469,7 +7469,7 @@ gh_trigger_html = (
     '<span style="font-size:10px;color:#888">ngsmetadvisor / UAanalysis &middot; main</span>'
     '<div class="gh-row">'
     '<span style="font-size:11px;color:#555;font-family:Courier New,monospace;letter-spacing:0.5px">'
-    + GH_TRIGGER_PREFIX +
+    'PIN'
     '</span>'
     '<input id="gh-suffix-inp" type="password" maxlength="4" placeholder="????" '
     'autocomplete="off" spellcheck="false" oninput="ghClearStatus()" />'
