@@ -12,7 +12,9 @@ jobs:
     timeout-minutes: 30
 
     permissions:
-      contents: write   # needed to commit the output HTML back to the repo
+      contents: write
+      pages: write
+      id-token: write
 
     steps:
       - name: Checkout repository
@@ -27,33 +29,32 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install \
-            requests \
-            scipy \
-            matplotlib \
-            numpy \
-            pykrige \
-            folium \
-            shapely \
-            branca \
-            pandas
+          pip install -r requirements.txt
 
       - name: Run upper air analysis
         run: python upper_air_analysis.py
 
-      - name: Upload synoptic map as artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: synoptic_map_${{ github.run_id }}
-          path: output/synoptic_map.html
-          retention-days: 7
+      # ── Rename to index.html so GitHub Pages serves it at the root URL ──
+      - name: Prepare Pages output
+        run: |
+          mkdir -p pages
+          cp output/synoptic_map.html pages/index.html
 
+      # ── Commit the raw HTML back to the repo (optional archive) ──────────
       - name: Commit output to repository
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add output/synoptic_map.html
-          # Only commit if there is actually a change
           git diff --cached --quiet || \
             git commit -m "chore: update synoptic map $(date -u +'%Y-%m-%d %H%MZ')"
           git push
+
+      # ── Publish to GitHub Pages ───────────────────────────────────────────
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: pages
+
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v4
