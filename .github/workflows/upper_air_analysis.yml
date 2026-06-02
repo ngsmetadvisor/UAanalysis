@@ -1,0 +1,59 @@
+name: Upper Air Analysis
+
+on:
+  schedule:
+    # Runs daily at 14:00 UTC (1400Z)
+    - cron: '0 14 * * *'
+  workflow_dispatch:   # allows manual trigger from GitHub UI
+
+jobs:
+  run-analysis:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    permissions:
+      contents: write   # needed to commit the output HTML back to the repo
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install \
+            requests \
+            scipy \
+            matplotlib \
+            numpy \
+            pykrige \
+            folium \
+            shapely \
+            branca \
+            pandas
+
+      - name: Run upper air analysis
+        run: python upper_air_analysis.py
+
+      - name: Upload synoptic map as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: synoptic_map_${{ github.run_id }}
+          path: output/synoptic_map.html
+          retention-days: 7
+
+      - name: Commit output to repository
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add output/synoptic_map.html
+          # Only commit if there is actually a change
+          git diff --cached --quiet || \
+            git commit -m "chore: update synoptic map $(date -u +'%Y-%m-%d %H%MZ')"
+          git push
