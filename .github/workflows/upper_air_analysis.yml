@@ -6,6 +6,10 @@ on:
     - cron: '27 13 * * *'
   workflow_dispatch:   # allows manual trigger from GitHub UI
 
+concurrency:
+  group: upper-air-analysis
+  cancel-in-progress: false
+
 jobs:
   run-analysis:
     runs-on: ubuntu-latest
@@ -48,6 +52,7 @@ jobs:
           git add output/synoptic_map.html
           git diff --cached --quiet || \
             git commit -m "chore: update synoptic map $(date -u +'%Y-%m-%d %H%MZ')"
+          git pull --rebase origin main
           git push
 
       # ── Publish to GitHub Pages ───────────────────────────────────────────
