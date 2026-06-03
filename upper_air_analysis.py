@@ -8476,19 +8476,19 @@ try:
             f'<div style="background:#fff;border:1px solid #ddd;border-top:none;'
             f'border-radius:0 0 6px 6px;padding:10px;">'
             f'<div style="display:flex;gap:6px;margin-bottom:8px;">'
-            f'<button onclick="uaAvailShowChart(\'{cid}\',\'skewt\')" id="uabtn-skewt-{cid}" '
+            f'<button onclick="saShowChart(\'{cid}\',\'skewt\')" id="sabtn-skewt-{cid}" '
             f'style="flex:1;padding:5px;border:1px solid #c0392b;border-radius:5px;'
             f'background:#c0392b;color:white;font-size:11px;cursor:pointer;font-weight:bold;">'
             f'🌡 Skew-T</button>'
-            f'<button onclick="uaAvailShowChart(\'{cid}\',\'wind\')" id="uabtn-wind-{cid}" '
+            f'<button onclick="saShowChart(\'{cid}\',\'wind\')" id="sabtn-wind-{cid}" '
             f'style="flex:1;padding:5px;border:1px solid #aaa;border-radius:5px;'
             f'background:#f5f5f5;color:#333;font-size:11px;cursor:pointer;">'
             f'💨 Wind Profile</button>'
             f'</div>'
-            f'<div id="uachart-skewt-{cid}" style="display:block;position:relative;">'
-            f'<canvas id="uacanvas-skewt-{cid}" style="width:100%;height:480px;"></canvas></div>'
-            f'<div id="uachart-wind-{cid}" style="display:none;">'
-            f'<canvas id="uacanvas-wind-{cid}" style="width:100%;height:480px;"></canvas></div>'
+            f'<div id="sachart-skewt-{cid}" style="display:block;position:relative;">'
+            f'<canvas id="sacanvas-skewt-{cid}" style="width:100%;height:480px;"></canvas></div>'
+            f'<div id="sachart-wind-{cid}" style="display:none;">'
+            f'<canvas id="sacanvas-wind-{cid}" style="width:100%;height:480px;"></canvas></div>'
             f'</div>'
             f'</div>'
         )
@@ -8629,7 +8629,7 @@ body { font-family: Arial, sans-serif; background: #f0f2f5; color: #1a2030; }
     <h1>&#128225; Upper Air Radiosonde Reporting Availability</h1>
     <div class="meta">Generated """ + _uasa_generated + """ &nbsp;&middot;&nbsp; """ + str(_uasa_total) + """ stations</div>
   </div>
-  <a href="synoptic_map.html" class="back-btn">&#8592; Synoptic Map</a>
+  <a href="index.html" class="back-btn">&#8592; Synoptic Map</a>
 </div>
 <div id="summary-bar">
   <b style="color:#555;">Summary:</b>
