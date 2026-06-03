@@ -8492,6 +8492,8 @@ try:
 
         _ua_stations_data.append({
             "lat": _s["lat"], "lon": _s["lon"],
+            "id": sid,
+            "name": _s["name"],
             "c_L": c_L, "c_R": c_R,
             "cid": cid,
             "popup": popup_html,
@@ -8695,7 +8697,11 @@ _SA_DATA.forEach(function(s) {
   var icon   = L.divIcon({ html: svg, iconSize:[24,24], iconAnchor:[12,12], className:'' });
   var marker = L.marker([s.lat, s.lon], { icon: icon })
     .bindPopup(s.popup, { maxWidth: 640, minWidth: 630 })
-    .bindTooltip('<b>' + s.id + '</b> ' + s.name, { sticky: true });
+    .bindTooltip(
+    '<div style="font-family:Courier New,monospace;font-size:12px;line-height:1.7;">' +
+    '<b>' + s.id + '</b> &nbsp; ' + s.name + '<br>' +
+    s.lat.toFixed(2) + '°N &nbsp; ' + Math.abs(s.lon).toFixed(2) + (s.lon < 0 ? '°W' : '°E') +
+    '</div>', { sticky: true });
   marker.on('popupopen', function() {
     setTimeout(function() { saDrawCharts(s); }, 80);
   });
