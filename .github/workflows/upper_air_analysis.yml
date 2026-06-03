@@ -1,65 +1,54 @@
 name: Upper Air Analysis
-
 on:
   schedule:
     # Runs daily at 14:00 UTC (1400Z)
     - cron: '27 13 * * *'
   workflow_dispatch:   # allows manual trigger from GitHub UI
-
 concurrency:
   group: upper-air-analysis
   cancel-in-progress: false
-
 jobs:
   run-analysis:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-
     permissions:
       contents: write
       pages: write
       id-token: write
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: 'pip'
-
       - name: Install dependencies
         run: |
           pip install --upgrade pip
           pip install -r requirements.txt
-
       - name: Run upper air analysis
         run: python upper_air_analysis.py
-
       # ── Rename to index.html so GitHub Pages serves it at the root URL ──
       - name: Prepare Pages output
         run: |
           mkdir -p pages
           cp output/synoptic_map.html pages/index.html
-
+          cp output/ua_availability.html pages/ua_availability.html
       # ── Commit the raw HTML back to the repo (optional archive) ──────────
       - name: Commit output to repository
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add output/synoptic_map.html
+          git add output/synoptic_map.html output/ua_availability.html
           git diff --cached --quiet || \
             git commit -m "chore: update synoptic map $(date -u +'%Y-%m-%d %H%MZ')"
           git pull --rebase origin main
           git push
-
       # ── Publish to GitHub Pages ───────────────────────────────────────────
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: pages
-
       - name: Deploy to GitHub Pages
         uses: actions/deploy-pages@v4
