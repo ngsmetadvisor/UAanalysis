@@ -8574,7 +8574,7 @@ try:
         else:                       _uasa_rec  += 1
 
     from datetime import datetime as _dt_sa, timezone as _tz_sa
-    _uasa_generated = _dt_sa.now(_tz_sa).strftime("%d %b %Y %H:%MZ")
+    _uasa_generated = _dt_sa.now(_tz_sa.utc).strftime("%d %b %Y %H:%MZ")
 
     _uasa_html = """<!DOCTYPE html>
 <html lang="en">
