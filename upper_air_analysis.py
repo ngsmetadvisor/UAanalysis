@@ -80,7 +80,7 @@ import threading, time
 
 import urllib.request, xml.etree.ElementTree as ET, json
 
-_KML_URL = 'https://github.com/ngsmetadvisor/SfcMap/raw/920cf65213038f03b6c927f218f76297c5c619c6/Alberta_Fire_Weather_Forecast_Zones.kml
+_KML_URL = 'https://github.com/ngsmetadvisor/SfcMap/raw/920cf65213038f03b6c927f218f76297c5c619c6/Alberta_Fire_Weather_Forecast_Zones.kml'
 
 def _kml_to_geojson(kml_bytes):
     root = ET.fromstring(kml_bytes)
