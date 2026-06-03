@@ -8466,7 +8466,8 @@ try:
             )
 
         popup_html = (
-            f'<div style="font-family:Arial,sans-serif;font-size:12px;width:620px;">'
+            f'<div style="font-family:Arial,sans-serif;font-size:12px;width:620px;'
+            f'max-height:{"{0}".format("calc(100vh - 120px)")};overflow-y:auto;">'
             f'<div style="background:#1a1a2e;color:white;padding:8px 12px;'
             f'border-radius:6px 6px 0 0;font-weight:bold;font-size:13px;">'
             f'📡 {_s["name"]} '
@@ -8490,9 +8491,9 @@ try:
             f'💨 Wind Profile</button>'
             f'</div>'
             f'<div id="sachart-skewt-{cid}" style="display:block;position:relative;">'
-            f'<canvas id="sacanvas-skewt-{cid}" style="width:100%;height:480px;"></canvas></div>'
+            f'<canvas id="sacanvas-skewt-{cid}" style="width:100%;height:min(480px,50vh);"></canvas></div>'
             f'<div id="sachart-wind-{cid}" style="display:none;">'
-            f'<canvas id="sacanvas-wind-{cid}" style="width:100%;height:480px;"></canvas></div>'
+            f'<canvas id="sacanvas-wind-{cid}" style="width:100%;height:min(480px,50vh);"></canvas></div>'
             f'</div>'
             f'</div>'
         )
@@ -8703,7 +8704,7 @@ _SA_DATA.forEach(function(s) {
   ].join('');
   var icon   = L.divIcon({ html: svg, iconSize:[24,24], iconAnchor:[12,12], className:'' });
   var marker = L.marker([s.lat, s.lon], { icon: icon })
-    .bindPopup(s.popup, { maxWidth: 640, minWidth: 630 })
+    .bindPopup(s.popup, { maxWidth: 640, minWidth: 630, maxHeight: window.innerHeight - 100 })
     .bindTooltip(
     '<div style="font-family:Courier New,monospace;font-size:12px;line-height:1.7;">' +
     '<b>' + s.id + '</b> &nbsp; ' + s.name + '<br>' +
