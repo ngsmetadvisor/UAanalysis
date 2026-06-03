@@ -8422,14 +8422,11 @@ try:
         t_a, lbl_a = _ua_get_timestamp(sub_a)
         t_b, lbl_b = _ua_get_timestamp(sub_b)
 
-        if t_a is not None and t_b is not None and t_b < t_a:
-            sub_L, sub_R = sub_b, sub_a
-            st_L,  st_R  = st_b,  st_a
-            lbl_L, lbl_R = lbl_b, lbl_a
-        else:
-            sub_L, sub_R = sub_a, sub_b
-            st_L,  st_R  = st_a,  st_b
-            lbl_L, lbl_R = lbl_a or "00Z", lbl_b or "12Z"
+        # Left = 00Z always, Right = 12Z always
+        sub_L, sub_R = sub_a, sub_b
+        st_L,  st_R  = st_a,  st_b
+        lbl_L = lbl_a or "00Z"
+        lbl_R = lbl_b or "12Z"
 
         d_L = _ua_stats(sub_L)
         d_R = _ua_stats(sub_R)
@@ -8636,7 +8633,7 @@ body { font-family: Arial, sans-serif; background: #f0f2f5; color: #1a2030; }
   <span class="sum-chip sum-ok">&#10004; Both OK &nbsp; """ + str(_uasa_ok) + """</span>
   <span class="sum-chip sum-rec">&#8635; Partial / Recovered &nbsp; """ + str(_uasa_rec) + """</span>
   <span class="sum-chip sum-miss">&#10008; Both Missing &nbsp; """ + str(_uasa_miss) + """</span>
-  <span style="color:#888;font-size:11px;font-style:italic;">Left half = earlier &nbsp;|&nbsp; Right half = later</span>
+  <span style="color:#888;font-size:11px;font-style:italic;">Left half = 00Z &nbsp;|&nbsp; Right half = 12Z</span>
 </div>
 <div id="legend-bar">
   <b>Legend:</b>
