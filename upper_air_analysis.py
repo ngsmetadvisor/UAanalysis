@@ -8814,12 +8814,12 @@ function saDrawWind(s) {
   _saCharts[key]=new Chart(ctxW,{
     type:'scatter',
     data:{datasets:[
-      {label:s.lbl_L+' (earlier)',data:pts(s.w_L,s.p_L),
-       borderColor:'#2980b9',backgroundColor:'#2980b944',
+      {label:s.lbl_L,data:pts(s.w_L,s.p_L),
+       borderColor:'#e74c3c',backgroundColor:'#e74c3c44',
        showLine:true,tension:0.3,pointRadius:3,borderWidth:2},
-      {label:s.lbl_R+' (later)',data:pts(s.w_R,s.p_R),
-       borderColor:'#8e44ad',backgroundColor:'#8e44ad44',
-       showLine:true,tension:0.3,pointRadius:3,borderWidth:2,borderDash:[4,3]}
+      {label:s.lbl_R,data:pts(s.w_R,s.p_R),
+       borderColor:'#27ae61',backgroundColor:'#27ae6144',
+       showLine:true,tension:0.3,pointRadius:3,borderWidth:2}
     ]},
     options:{
       responsive:true,animation:false,
