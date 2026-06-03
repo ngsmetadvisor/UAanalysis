@@ -8814,4 +8814,423 @@ with open(out_path, 'w') as _f:
 print(f'✓ Map saved → {out_path}')
 
 
+# ══════════════════════════════════════════════════════════════════════════════
+#  STANDALONE: ua_availability.html
+#  Full-page radiosonde reporting availability map — separate URL on Pages
+#  https://ngsmetadvisor.github.io/UAanalysis/ua_availability.html
+# ══════════════════════════════════════════════════════════════════════════════
+try:
+    import json as _uasa_json
+
+    _uasa_df = ua_raw_df.copy()
+
+    def _uasa_fmt(val, spec=".1f"):
+        if val is None or (isinstance(val, float) and np.isnan(val)):
+            return "—"
+        return format(val, spec)
+
+    def _uasa_safe(v):
+        if v is None: return None
+        if isinstance(v, float) and np.isnan(v): return None
+        return float(v)
+
+    def _uasa_stats(sub):
+        if sub is None or len(sub) == 0: return None
+        return {
+            "levels":    int(len(sub)),
+            "temp_mean": float(sub["TEMP"].mean()),
+            "wind_mean": float(sub["SPED"].mean()),
+            "min_pres":  float(sub["PRES"].min()),
+            "max_pres":  float(sub["PRES"].max()),
+        }
+
+    def _uasa_profile(sub):
+        if sub is None or len(sub) == 0: return [], [], []
+        s = sub.sort_values("PRES", ascending=False)
+        return (
+            [_uasa_safe(v) for v in s["PRES"]],
+            [_uasa_safe(v) for v in s["TEMP"]],
+            [_uasa_safe(v) for v in s["SPED"]],
+        )
+
+    def _uasa_get_ts(sub):
+        if sub is None or len(sub) == 0: return None, None
+        for col in ["datetime", "valid_time", "time", "DATE", "date"]:
+            if col in sub.columns:
+                try:
+                    t = pd.to_datetime(sub[col].iloc[0])
+                    return t, t.strftime("%d %b %Y %HZ")
+                except: pass
+        return None, None
+
+    def _uasa_scol(st):
+        s = {"✔ ok": 2, "↻✔ recovered": 1, "✘ no data": 0}.get(st, 0)
+        return "#27ae60" if s == 2 else ("#2980b9" if s == 1 else "#e74c3c")
+
+    def _uasa_sbg(st):
+        s = {"✔ ok": 2, "↻✔ recovered": 1, "✘ no data": 0}.get(st, 0)
+        return "#f0faf4" if s == 2 else ("#eef6fd" if s == 1 else "#fff0f0")
+
+    _uasa_stations = []
+    _uasa_ok = _uasa_rec = _uasa_miss = 0
+
+    for _ss in UPPER_AIR_STATIONS:
+        sid = _ss["id"]
+        sub_a = _uasa_df[(_uasa_df["icao"] == sid) & (_uasa_df["hour"] == 0)]
+        sub_b = _uasa_df[(_uasa_df["icao"] == sid) & (_uasa_df["hour"] == 12)]
+        st_a  = _status.get((sid, 0),  "✘ no data")
+        st_b  = _status.get((sid, 12), "✘ no data")
+        t_a, lbl_a = _uasa_get_ts(sub_a)
+        t_b, lbl_b = _uasa_get_ts(sub_b)
+        if t_a is not None and t_b is not None and t_b < t_a:
+            sub_L,sub_R,st_L,st_R,lbl_L,lbl_R = sub_b,sub_a,st_b,st_a,lbl_b,lbl_a
+        else:
+            sub_L,sub_R,st_L,st_R = sub_a,sub_b,st_a,st_b
+            lbl_L,lbl_R = lbl_a or "00Z", lbl_b or "12Z"
+
+        d_L = _uasa_stats(sub_L);  d_R = _uasa_stats(sub_R)
+        p_L,t_L,w_L = _uasa_profile(sub_L)
+        p_R,t_R,w_R = _uasa_profile(sub_R)
+        c_L,c_R   = _uasa_scol(st_L), _uasa_scol(st_R)
+        bg_L,bg_R = _uasa_sbg(st_L),  _uasa_sbg(st_R)
+        cid = sid.replace(" ", "_")
+
+        _sc = lambda s: {"✔ ok":2,"↻✔ recovered":1,"✘ no data":0}.get(s,0)
+        if   _sc(st_L)==2 and _sc(st_R)==2: _uasa_ok   += 1
+        elif _sc(st_L)==0 and _sc(st_R)==0: _uasa_miss += 1
+        else:                                _uasa_rec  += 1
+
+        def _card(label, emoji, st, d, c, bg):
+            levels = str(d['levels'])                                                           if d else '—'
+            temp   = _uasa_fmt(d['temp_mean']) + " °C"                                         if d else '—'
+            wind   = _uasa_fmt(d['wind_mean']) + " kt"                                         if d else '—'
+            pres   = f"{_uasa_fmt(d['min_pres'],'.0f')}–{_uasa_fmt(d['max_pres'],'.0f')} hPa" if d else '—'
+            return (
+                f'<div style="flex:1;border:2px solid {c};border-radius:7px;background:{bg};overflow:hidden;">'
+                f'<div style="background:{c};color:white;font-weight:bold;font-size:11px;padding:5px 8px;">'
+                f'{emoji} {label}</div>'
+                f'<div style="padding:7px 8px;font-size:12px;">'
+                f'<div style="display:inline-block;padding:1px 7px;border-radius:10px;'
+                f'background:{c}22;color:{c};font-weight:600;font-size:11px;margin-bottom:5px;">{st}</div>'
+                f'<table style="border-collapse:collapse;width:100%;">'
+                f'<tr><td style="color:#888;padding-right:8px;">Levels</td><td style="font-weight:500;">{levels}</td></tr>'
+                f'<tr><td style="color:#888;padding-right:8px;">Temp</td><td style="font-weight:500;">{temp}</td></tr>'
+                f'<tr><td style="color:#888;padding-right:8px;">Wind</td><td style="font-weight:500;">{wind}</td></tr>'
+                f'<tr><td style="color:#888;padding-right:8px;">Pressure</td><td style="font-weight:500;">{pres}</td></tr>'
+                f'</table></div></div>'
+            )
+
+        popup_html = (
+            f'<div style="font-family:Arial,sans-serif;font-size:12px;width:620px;">'
+            f'<div style="background:#1a1a2e;color:white;padding:8px 12px;'
+            f'border-radius:6px 6px 0 0;font-weight:bold;font-size:13px;">'
+            f'📡 {_ss["name"]} <span style="font-weight:normal;font-size:11px;opacity:0.75;">({sid})</span></div>'
+            f'<div style="display:flex;gap:8px;padding:10px;background:#f8f9fa;border:1px solid #ddd;border-top:none;">'
+            f'{_card(lbl_L,"🕛",st_L,d_L,c_L,bg_L)}{_card(lbl_R,"🕕",st_R,d_R,c_R,bg_R)}'
+            f'</div>'
+            f'<div style="background:#fff;border:1px solid #ddd;border-top:none;border-radius:0 0 6px 6px;padding:10px;">'
+            f'<div style="display:flex;gap:6px;margin-bottom:8px;">'
+            f'<button onclick="saShowChart(\'{cid}\',\'skewt\')" id="sabtn-skewt-{cid}" '
+            f'style="flex:1;padding:5px;border:1px solid #c0392b;border-radius:5px;'
+            f'background:#c0392b;color:white;font-size:11px;cursor:pointer;font-weight:bold;">🌡 Skew-T</button>'
+            f'<button onclick="saShowChart(\'{cid}\',\'wind\')" id="sabtn-wind-{cid}" '
+            f'style="flex:1;padding:5px;border:1px solid #aaa;border-radius:5px;'
+            f'background:#f5f5f5;color:#333;font-size:11px;cursor:pointer;">💨 Wind Profile</button>'
+            f'</div>'
+            f'<div id="sachart-skewt-{cid}" style="display:block;">'
+            f'<canvas id="sacanvas-skewt-{cid}" style="width:100%;height:480px;"></canvas></div>'
+            f'<div id="sachart-wind-{cid}" style="display:none;">'
+            f'<canvas id="sacanvas-wind-{cid}" style="width:100%;height:480px;"></canvas></div>'
+            f'</div></div>'
+        )
+
+        _uasa_stations.append({
+            "lat": _ss["lat"], "lon": _ss["lon"],
+            "name": _ss["name"], "id": sid,
+            "c_L": c_L, "c_R": c_R, "cid": cid,
+            "st_L": st_L, "st_R": st_R,
+            "popup": popup_html,
+            "lbl_L": lbl_L, "lbl_R": lbl_R,
+            "p_L": p_L, "t_L": t_L, "w_L": w_L,
+            "p_R": p_R, "t_R": t_R, "w_R": w_R,
+        })
+
+    _uasa_json_str  = _uasa_json.dumps(_uasa_stations)
+    _uasa_total     = len(_uasa_stations)
+    from datetime import datetime as _dt_sa, timezone as _tz_sa
+    _uasa_generated = _dt_sa.now(_tz_sa).strftime("%d %b %Y %H:%MZ")
+
+    _uasa_html = """<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Upper Air Radiosonde Reporting Availability</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: Arial, sans-serif; background: #f0f2f5; color: #1a2030; }
+#header {
+  background: #1a1a2e; color: #fff;
+  padding: 12px 20px; display: flex; align-items: center;
+  justify-content: space-between; box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+#header h1  { font-size: 16px; font-weight: bold; }
+#header .meta { font-size: 11px; opacity: 0.65; margin-top: 2px; }
+#header .back-btn {
+  font-size: 11px; padding: 5px 12px; cursor: pointer;
+  border: 1px solid rgba(255,255,255,0.4); border-radius: 5px;
+  background: rgba(255,255,255,0.12); color: #fff; text-decoration: none;
+}
+#header .back-btn:hover { background: rgba(255,255,255,0.22); }
+#summary-bar {
+  background: #fff; border-bottom: 1px solid #ddd;
+  padding: 7px 20px; display: flex; gap: 20px;
+  align-items: center; font-size: 12px; flex-wrap: wrap;
+}
+.sum-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 10px; border-radius: 12px; font-weight: 600; font-size: 12px;
+}
+.sum-ok   { background:#e6faf0; color:#145c2c; border:1px solid #27ae60; }
+.sum-rec  { background:#eef6fd; color:#1a3a8a; border:1px solid #2980b9; }
+.sum-miss { background:#fff0f0; color:#a02020; border:1px solid #e74c3c; }
+#legend-bar {
+  background: #f8f9fa; border-bottom: 1px solid #e0e0e0;
+  padding: 6px 20px; display: flex; gap: 14px;
+  align-items: center; font-size: 11px; flex-wrap: wrap;
+}
+#legend-bar b { color: #333; font-size: 12px; }
+.leg-item { display: flex; align-items: center; gap: 4px; }
+#map { width: 100%; height: calc(100vh - 130px); }
+</style>
+</head>
+<body>
+<div id="header">
+  <div>
+    <h1>&#128225; Upper Air Radiosonde Reporting Availability</h1>
+    <div class="meta">Generated """ + _uasa_generated + """ &nbsp;&middot;&nbsp; """ + str(_uasa_total) + """ stations</div>
+  </div>
+  <a href="index.html" class="back-btn">&#8592; Synoptic Map</a>
+</div>
+<div id="summary-bar">
+  <b style="color:#555;">Summary:</b>
+  <span class="sum-chip sum-ok">&#10004; Both OK &nbsp; """ + str(_uasa_ok) + """</span>
+  <span class="sum-chip sum-rec">&#8635; Partial / Recovered &nbsp; """ + str(_uasa_rec) + """</span>
+  <span class="sum-chip sum-miss">&#10008; Both Missing &nbsp; """ + str(_uasa_miss) + """</span>
+  <span style="color:#888;font-size:11px;font-style:italic;">Left half = earlier &nbsp;|&nbsp; Right half = later</span>
+</div>
+<div id="legend-bar">
+  <b>Legend:</b>
+  <span class="leg-item">
+    <svg width="18" height="18" viewBox="0 0 22 22">
+      <path d="M 11,11 m 0,-10 a 10,10 0 0,0 0,20 Z" fill="#27ae60"/>
+      <path d="M 11,11 m 0,-10 a 10,10 0 0,1 0,20 Z" fill="#27ae60"/>
+      <circle cx="11" cy="11" r="10" fill="none" stroke="white" stroke-width="1.5"/>
+      <line x1="11" y1="1" x2="11" y2="21" stroke="white" stroke-width="1.2"/>
+    </svg>Both OK</span>
+  <span class="leg-item">
+    <svg width="18" height="18" viewBox="0 0 22 22">
+      <path d="M 11,11 m 0,-10 a 10,10 0 0,0 0,20 Z" fill="#e74c3c"/>
+      <path d="M 11,11 m 0,-10 a 10,10 0 0,1 0,20 Z" fill="#27ae60"/>
+      <circle cx="11" cy="11" r="10" fill="none" stroke="white" stroke-width="1.5"/>
+      <line x1="11" y1="1" x2="11" y2="21" stroke="white" stroke-width="1.2"/>
+    </svg>Earlier missing</span>
+  <span class="leg-item">
+    <svg width="18" height="18" viewBox="0 0 22 22">
+      <path d="M 11,11 m 0,-10 a 10,10 0 0,0 0,20 Z" fill="#27ae60"/>
+      <path d="M 11,11 m 0,-10 a 10,10 0 0,1 0,20 Z" fill="#e74c3c"/>
+      <circle cx="11" cy="11" r="10" fill="none" stroke="white" stroke-width="1.5"/>
+      <line x1="11" y1="1" x2="11" y2="21" stroke="white" stroke-width="1.2"/>
+    </svg>Later missing</span>
+  <span class="leg-item">
+    <svg width="18" height="18" viewBox="0 0 22 22">
+      <path d="M 11,11 m 0,-10 a 10,10 0 0,0 0,20 Z" fill="#2980b9"/>
+      <path d="M 11,11 m 0,-10 a 10,10 0 0,1 0,20 Z" fill="#27ae60"/>
+      <circle cx="11" cy="11" r="10" fill="none" stroke="white" stroke-width="1.5"/>
+      <line x1="11" y1="1" x2="11" y2="21" stroke="white" stroke-width="1.2"/>
+    </svg>One recovered</span>
+  <span class="leg-item">
+    <svg width="18" height="18" viewBox="0 0 22 22">
+      <path d="M 11,11 m 0,-10 a 10,10 0 0,0 0,20 Z" fill="#e74c3c"/>
+      <path d="M 11,11 m 0,-10 a 10,10 0 0,1 0,20 Z" fill="#e74c3c"/>
+      <circle cx="11" cy="11" r="10" fill="none" stroke="white" stroke-width="1.5"/>
+      <line x1="11" y1="1" x2="11" y2="21" stroke="white" stroke-width="1.2"/>
+    </svg>Both missing</span>
+</div>
+<div id="map"></div>
+<script>
+var _SA_DATA = """ + _uasa_json_str + """;
+var _saCharts = {};
+
+var saMap = L.map('map', { center: [55, -100], zoom: 3 });
+L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+  attribution: '&copy; CartoDB', subdomains: 'abcd', maxZoom: 19
+}).addTo(saMap);
+
+_SA_DATA.forEach(function(s) {
+  var svg = [
+    '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">',
+    '<path d="M 12,12 m 0,-10 a 10,10 0 0,0 0,20 Z" fill="' + s.c_L + '"/>',
+    '<path d="M 12,12 m 0,-10 a 10,10 0 0,1 0,20 Z" fill="' + s.c_R + '"/>',
+    '<circle cx="12" cy="12" r="10" fill="none" stroke="white" stroke-width="1.5"/>',
+    '<line x1="12" y1="2" x2="12" y2="22" stroke="white" stroke-width="1.2"/>',
+    '</svg>'
+  ].join('');
+  var icon   = L.divIcon({ html: svg, iconSize:[24,24], iconAnchor:[12,12], className:'' });
+  var marker = L.marker([s.lat, s.lon], { icon: icon })
+    .bindPopup(s.popup, { maxWidth: 640, minWidth: 630 })
+    .bindTooltip('<b>' + s.id + '</b> ' + s.name, { sticky: true });
+  marker.on('popupopen', function() {
+    setTimeout(function() { saDrawCharts(s); }, 80);
+  });
+  marker.addTo(saMap);
+});
+
+function saShowChart(cid, which) {
+  ['skewt','wind'].forEach(function(t) {
+    var el  = document.getElementById('sachart-' + t + '-' + cid);
+    var btn = document.getElementById('sabtn-'   + t + '-' + cid);
+    var cols = { skewt:'#c0392b', wind:'#2980b9' };
+    if (el)  el.style.display = (t === which) ? 'block' : 'none';
+    if (btn) {
+      if (t === which) {
+        btn.style.background = cols[t]; btn.style.borderColor = cols[t];
+        btn.style.color = 'white'; btn.style.fontWeight = 'bold';
+      } else {
+        btn.style.background = '#f5f5f5'; btn.style.borderColor = '#aaa';
+        btn.style.color = '#333'; btn.style.fontWeight = 'normal';
+      }
+    }
+  });
+}
+
+function saDrawSkewT(s) {
+  var canvas = document.getElementById('sacanvas-skewt-' + s.cid);
+  if (!canvas) return;
+  var rect = canvas.getBoundingClientRect();
+  var W = rect.width || 580, H = rect.height || 480;
+  canvas.width = W; canvas.height = H;
+  var ctx = canvas.getContext('2d');
+  ctx.clearRect(0,0,W,H);
+  var ml=52,mr=20,mt=30,mb=40, pw=W-ml-mr, ph=H-mt-mb;
+  var P_BOT=1050,P_TOP=100,T_MIN=-80,T_MAX=40,SKEW=0.5;
+  function yP(p)   { return mt + ph*(Math.log(P_TOP)-Math.log(p))/(Math.log(P_TOP)-Math.log(P_BOT)); }
+  function xT(t,p) { return ml + pw*(t-T_MIN)/(T_MAX-T_MIN) + SKEW*(yP(P_BOT)-yP(p)); }
+  ctx.save(); ctx.beginPath(); ctx.rect(ml,mt,pw,ph); ctx.clip();
+  ctx.fillStyle='#fafafa'; ctx.fillRect(ml,mt,pw,ph);
+  ctx.strokeStyle='rgba(220,120,60,0.35)'; ctx.lineWidth=0.8; ctx.setLineDash([4,4]);
+  [240,260,280,300,320,340,360,380,400,420].forEach(function(theta) {
+    ctx.beginPath(); var first=true;
+    for (var p=P_BOT;p>=P_TOP;p-=5) {
+      var T=theta*Math.pow(p/1000,0.286)-273.15, x=xT(T,p), y=yP(p);
+      first?ctx.moveTo(x,y):ctx.lineTo(x,y); first=false;
+    }
+    ctx.stroke();
+  });
+  ctx.strokeStyle='rgba(100,100,200,0.3)'; ctx.lineWidth=0.8; ctx.setLineDash([]);
+  for (var T=T_MIN;T<=T_MAX;T+=10) {
+    ctx.beginPath(); ctx.moveTo(xT(T,P_BOT),yP(P_BOT)); ctx.lineTo(xT(T,P_TOP),yP(P_TOP)); ctx.stroke();
+  }
+  ctx.strokeStyle='rgba(0,100,200,0.6)'; ctx.lineWidth=1.5; ctx.setLineDash([6,3]);
+  ctx.beginPath(); ctx.moveTo(xT(0,P_BOT),yP(P_BOT)); ctx.lineTo(xT(0,P_TOP),yP(P_TOP)); ctx.stroke();
+  ctx.setLineDash([]);
+  [1000,925,850,700,500,400,300,250,200,150,100].forEach(function(p) {
+    if(p>P_BOT||p<P_TOP) return;
+    var y=yP(p); ctx.strokeStyle='rgba(150,150,150,0.5)';
+    ctx.lineWidth=(p===500||p===850)?1.2:0.7;
+    ctx.beginPath(); ctx.moveTo(ml,y); ctx.lineTo(ml+pw,y); ctx.stroke();
+  });
+  ctx.restore();
+  ctx.fillStyle='#444'; ctx.font='10px Arial'; ctx.textAlign='right';
+  [1000,925,850,700,500,400,300,250,200,150,100].forEach(function(p) {
+    if(p>P_BOT||p<P_TOP) return; ctx.fillText(p,ml-4,yP(p)+3);
+  });
+  ctx.fillStyle='rgba(80,80,160,0.7)'; ctx.font='9px Arial'; ctx.textAlign='center';
+  for (var TT=T_MIN;TT<=T_MAX;TT+=10) { ctx.fillText(TT+'°',xT(TT,P_BOT),mt+ph+12); }
+  ctx.save(); ctx.fillStyle='#333'; ctx.font='bold 10px Arial'; ctx.textAlign='center';
+  ctx.translate(12,mt+ph/2); ctx.rotate(-Math.PI/2); ctx.fillText('Pressure (hPa)',0,0); ctx.restore();
+  ctx.fillStyle='#666'; ctx.font='10px Arial'; ctx.textAlign='center';
+  ctx.fillText('Temperature (°C)',ml+pw/2,mt+ph+28);
+  ctx.save(); ctx.beginPath(); ctx.rect(ml,mt,pw,ph); ctx.clip();
+  function drawSounding(pArr,tArr,color,dash) {
+    if(!pArr||!pArr.length) return;
+    ctx.strokeStyle=color; ctx.lineWidth=2.2; ctx.setLineDash(dash||[]);
+    ctx.beginPath(); var first=true;
+    for(var i=0;i<pArr.length;i++) {
+      var p=pArr[i],t=tArr[i];
+      if(p===null||t===null){first=true;continue;}
+      if(p<P_TOP||p>P_BOT){first=true;continue;}
+      first?ctx.moveTo(xT(t,p),yP(p)):ctx.lineTo(xT(t,p),yP(p)); first=false;
+    }
+    ctx.stroke(); ctx.fillStyle=color; ctx.setLineDash([]);
+    for(var j=0;j<pArr.length;j++) {
+      if(pArr[j]===null||tArr[j]===null||pArr[j]<P_TOP||pArr[j]>P_BOT) continue;
+      ctx.beginPath(); ctx.arc(xT(tArr[j],pArr[j]),yP(pArr[j]),2.5,0,2*Math.PI); ctx.fill();
+    }
+  }
+  drawSounding(s.p_L,s.t_L,'#e74c3c',[]);
+  drawSounding(s.p_R,s.t_R,'#e67e22',[6,3]);
+  ctx.restore();
+  var lx=ml+pw-5,ly=mt+8;
+  [[s.lbl_L,'#e74c3c',[]],[s.lbl_R,'#e67e22',[5,3]]].forEach(function(item,i) {
+    var yy=ly+i*18; ctx.setLineDash(item[2]);
+    ctx.strokeStyle=item[1]; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(lx-52,yy+4); ctx.lineTo(lx-36,yy+4); ctx.stroke();
+    ctx.setLineDash([]); ctx.fillStyle='#333'; ctx.font='10px Arial'; ctx.textAlign='right';
+    ctx.fillText(item[0],lx,yy+7);
+  });
+  ctx.fillStyle='#1a1a2e'; ctx.font='bold 11px Arial'; ctx.textAlign='center';
+  ctx.fillText('Skew-T Log-P  \u2014  Temperature Profile',ml+pw/2,mt-8);
+}
+
+function saDrawWind(s) {
+  var key='wind-'+s.cid;
+  if(_saCharts[key]){_saCharts[key].destroy();delete _saCharts[key];}
+  var ctxW=document.getElementById('sacanvas-wind-'+s.cid);
+  if(!ctxW) return;
+  function pts(xs,ys){var o=[];for(var i=0;i<xs.length;i++){if(xs[i]!==null&&ys[i]!==null)o.push({x:xs[i],y:ys[i]});}return o;}
+  _saCharts[key]=new Chart(ctxW,{
+    type:'scatter',
+    data:{datasets:[
+      {label:s.lbl_L+' (earlier)',data:pts(s.w_L,s.p_L),
+       borderColor:'#2980b9',backgroundColor:'#2980b944',
+       showLine:true,tension:0.3,pointRadius:3,borderWidth:2},
+      {label:s.lbl_R+' (later)',data:pts(s.w_R,s.p_R),
+       borderColor:'#8e44ad',backgroundColor:'#8e44ad44',
+       showLine:true,tension:0.3,pointRadius:3,borderWidth:2,borderDash:[4,3]}
+    ]},
+    options:{
+      responsive:true,animation:false,
+      plugins:{
+        legend:{position:'top',labels:{boxWidth:12,font:{size:11}}},
+        tooltip:{callbacks:{label:function(c){return c.dataset.label+': '+c.parsed.x.toFixed(1)+' kt | '+c.parsed.y.toFixed(0)+' hPa';}}}
+      },
+      scales:{
+        x:{title:{display:true,text:'Wind Speed (kt)',font:{size:11}},grid:{color:'#eee'}},
+        y:{title:{display:true,text:'Pressure (hPa)',font:{size:11}},reverse:true,grid:{color:'#eee'},ticks:{font:{size:10}}}
+      }
+    }
+  });
+}
+
+function saDrawCharts(s) { saDrawSkewT(s); saDrawWind(s); }
+</script>
+</body>
+</html>"""
+
+    _uasa_out = 'output/ua_availability.html'
+    with open(_uasa_out, 'w', encoding='utf-8') as _f:
+        _f.write(_uasa_html)
+    print(f'✓ Standalone availability map → {_uasa_out}  ({_uasa_total} stations)')
+    print(f'  URL: https://ngsmetadvisor.github.io/UAanalysis/ua_availability.html')
+
+except Exception as _uasa_ex:
+    import traceback
+    print(f'⚠ ua_availability.html skipped: {_uasa_ex}')
+    traceback.print_exc()
+
+
 #####################################################
