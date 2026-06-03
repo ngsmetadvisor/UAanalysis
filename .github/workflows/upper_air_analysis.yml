@@ -4,6 +4,8 @@ on:
     # Runs daily at 14:00 UTC (1400Z)
     - cron: '27 13 * * *'
   workflow_dispatch:   # allows manual trigger from GitHub UI
+  repository_dispatch:
+    types: [run-analysis]
 concurrency:
   group: upper-air-analysis
   cancel-in-progress: false
