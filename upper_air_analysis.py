@@ -8650,14 +8650,14 @@ body { font-family: Arial, sans-serif; background: #f0f2f5; color: #1a2030; }
       <path d="M 11,11 m 0,-10 a 10,10 0 0,1 0,20 Z" fill="#27ae60"/>
       <circle cx="11" cy="11" r="10" fill="none" stroke="white" stroke-width="1.5"/>
       <line x1="11" y1="1" x2="11" y2="21" stroke="white" stroke-width="1.2"/>
-    </svg>Earlier missing</span>
+    </svg>00Z missing</span>
   <span class="leg-item">
     <svg width="18" height="18" viewBox="0 0 22 22">
       <path d="M 11,11 m 0,-10 a 10,10 0 0,0 0,20 Z" fill="#27ae60"/>
       <path d="M 11,11 m 0,-10 a 10,10 0 0,1 0,20 Z" fill="#e74c3c"/>
       <circle cx="11" cy="11" r="10" fill="none" stroke="white" stroke-width="1.5"/>
       <line x1="11" y1="1" x2="11" y2="21" stroke="white" stroke-width="1.2"/>
-    </svg>Later missing</span>
+    </svg>12Z missing</span>
   <span class="leg-item">
     <svg width="18" height="18" viewBox="0 0 22 22">
       <path d="M 11,11 m 0,-10 a 10,10 0 0,0 0,20 Z" fill="#2980b9"/>
