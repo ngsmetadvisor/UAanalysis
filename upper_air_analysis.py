@@ -8785,10 +8785,10 @@ function saDrawSkewT(s) {
     }
   }
   drawSounding(s.p_L,s.t_L,'#e74c3c',[]);
-  drawSounding(s.p_R,s.t_R,'#27ae60',[]);
+  drawSounding(s.p_R,s.t_R,'#27ae61',[]);
   ctx.restore();
   var lx=ml+pw-5,ly=mt+8;
-  [[s.lbl_L,'#e74c3c',[]],[s.lbl_R,'#27ae60',[]]].forEach(function(item,i) {
+  [[s.lbl_L,'#e74c3c',[]],[s.lbl_R,'#27ae61',[]]].forEach(function(item,i) {
     var yy=ly+i*18; ctx.setLineDash(item[2]);
     ctx.strokeStyle=item[1]; ctx.lineWidth=2;
     ctx.beginPath(); ctx.moveTo(lx-52,yy+4); ctx.lineTo(lx-36,yy+4); ctx.stroke();
