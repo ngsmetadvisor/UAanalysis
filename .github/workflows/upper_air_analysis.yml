@@ -45,8 +45,8 @@ jobs:
           git add output/synoptic_map.html output/ua_availability.html
           git diff --cached --quiet || \
             git commit -m "chore: update synoptic map $(date -u +'%Y-%m-%d %H%MZ')"
-          git pull --rebase origin main
-          git push
+          git fetch origin main
+          git push --force-with-lease origin HEAD:main
       # ── Publish to GitHub Pages ───────────────────────────────────────────
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
