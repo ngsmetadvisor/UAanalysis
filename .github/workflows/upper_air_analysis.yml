@@ -2,7 +2,7 @@ name: Upper Air Analysis
 on:
   schedule:
     # Runs daily at 14:00 UTC (1400Z)
-    - cron: '57 12 * * *'
+    - cron: '47 12 * * *'
   workflow_dispatch:   # allows manual trigger from GitHub UI
   repository_dispatch:
     types: [run-analysis]
