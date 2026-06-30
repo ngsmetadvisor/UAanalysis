@@ -1259,7 +1259,21 @@ for (sta, run), b64 in wind_png_b64.items():
 
 png_script = folium.Element(f"""
 <script>
+
 var pngData = {_json.dumps(png_lookup)};
+var overviewData = {{
+    "tephi": {_json.dumps(tephi_overview_b64) if 'tephi_overview_b64' in dir() else 'null'},
+    "wind": {_json.dumps(wind_overview_b64) if 'wind_overview_b64' in dir() else 'null'}
+}};
+function openOverview(kind) {{
+    var b64 = overviewData[kind];
+    if (!b64) {{
+        alert("Overview image not available");
+        return;
+    }}
+    var w = window.open("");
+    w.document.write('<title>' + kind + ' overview</title><img src="data:image/png;base64,' + b64 + '" style="max-width:100%;">');
+}}
 function openSounding(baseKey) {{
     var profileKey = baseKey + "|PROFILE";
     var windsKey = baseKey + "|WINDS";
@@ -1419,10 +1433,11 @@ if 'wind_zip_b64' in dir() and 'wind_zip_filename' in dir():
       </a>
     """
 
+
 tephi_overview_btn = ""
 if 'tephi_overview_b64' in dir():
-    tephi_overview_btn = f"""
-      <a href="data:image/png;base64,{tephi_overview_b64}" target="_blank"
+    tephi_overview_btn = """
+      <a href="#" onclick="openOverview('tephi');return false;"
          style="display:inline-block;padding:6px 12px;background:#fff;
                 color:#ff7f0e;font-weight:bold;border:1.5px solid #ff7f0e;border-radius:5px;
                 text-decoration:none;font-size:11px;margin-top:6px;margin-left:6px;">
@@ -1430,10 +1445,11 @@ if 'tephi_overview_b64' in dir():
       </a>
     """
 
+
 wind_overview_btn = ""
 if 'wind_overview_b64' in dir():
-    wind_overview_btn = f"""
-      <a href="data:image/png;base64,{wind_overview_b64}" target="_blank"
+    wind_overview_btn = """
+      <a href="#" onclick="openOverview('wind');return false;"
          style="display:inline-block;padding:6px 12px;background:#fff;
                 color:#1a6fb5;font-weight:bold;border:1.5px solid #1a6fb5;border-radius:5px;
                 text-decoration:none;font-size:11px;margin-top:6px;margin-left:6px;">
