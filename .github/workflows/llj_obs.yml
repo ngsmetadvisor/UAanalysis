@@ -1,9 +1,6 @@
 name: LLJ Soundings (radiosonde wind/CAPE)
 
 on:
-  schedule:
-    # ~1.5-2h after the 00Z/12Z radiosonde launches
-
   workflow_dispatch: {}
 
 concurrency:
