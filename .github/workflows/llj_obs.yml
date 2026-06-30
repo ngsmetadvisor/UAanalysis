@@ -1,0 +1,39 @@
+name: LLJ Soundings (radiosonde wind/CAPE)
+
+on:
+  schedule:
+    # radiosonde launches are ~00Z/12Z; data is normally posted 1.5-2h later
+    - cron: "30 1 * * *"   # ~01:30 UTC -> covers the 00Z run
+    - cron: "30 13 * * *"  # ~13:30 UTC -> covers the 12Z run
+  workflow_dispatch: {}     # manual "Run workflow" button / trigger from the map page
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run LLJ obs script
+        env:
+          LLJ_OUTPUT_DIR: output/llj_obs
+        run: python llj_obs.py
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: output/llj_obs
+          destination_dir: llj_obs
+          keep_files: true
