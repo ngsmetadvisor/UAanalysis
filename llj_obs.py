@@ -24,6 +24,7 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 # coverage map section at the bottom still reads from them.
 profile_png_b64 = {}
 station_instability = {}
+station_cape = {}
 wind_png_b64 = {}
 station_peak_wind = {}
 
@@ -420,8 +421,10 @@ else:
         buf = io.BytesIO()
         fig.savefig(buf, dpi=150, bbox_inches="tight", format="png")
         buf.seek(0)
-        zf.writestr(overview_name, buf.read())
+        overview_png_bytes = buf.read()
+        zf.writestr(overview_name, overview_png_bytes)
         saved_files.append(overview_name)
+        wind_overview_b64 = base64.b64encode(overview_png_bytes).decode()
 
         # individual station PNGs
         for ax_idx, (key, sd) in enumerate(soundings.items()):
@@ -488,6 +491,7 @@ else:
     zip_buf.seek(0)
 
     import base64
+    wind_zip_b64 = base64.b64encode(zip_buf.read()).decode()
     wind_zip_filename = f"winds_{PLOT_RUN}_{run_date}.zip"
     wind_zip_path = os.path.join(OUTPUT_DIR, wind_zip_filename)
 
@@ -950,8 +954,19 @@ else:
     saved_files = []
     profile_png_b64 = {}     # {(name, run): base64 PNG string} — used by the coverage map cell
     station_instability = {} # {(name, run): {"tag": "CB"/"TCU"/"", "dT": float}} — used by the coverage map cell
+    station_cape = {}        # {(name, run): {"CAPE": float, "MUCAPE": float}} — used by the coverage map cell
 
     with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        # combined overview PNG (mirrors the wind-speed overview)
+        tephi_overview_name = f"soundings_{PLOT_RUN}_{run_date}.png"
+        ov_buf = io.BytesIO()
+        fig.savefig(ov_buf, dpi=150, bbox_inches="tight", format="png")
+        ov_buf.seek(0)
+        tephi_overview_bytes = ov_buf.read()
+        zf.writestr(tephi_overview_name, tephi_overview_bytes)
+        saved_files.append(tephi_overview_name)
+        tephi_overview_b64 = base64.b64encode(tephi_overview_bytes).decode()
+
         for idx, (name, run) in enumerate(station_keys):
             gj = raw_geojson[name][run]
             p, T_K, Td_K, u, v, h = parse_full(gj)
@@ -975,6 +990,8 @@ else:
             except Exception:
                 mu_idx_s = 0
                 MUCAPE, MUCIN, pLCL_mu, TLCL_mu = 0, 0, p[0], T_K[0]
+
+            station_cape[(name, run)] = {"CAPE": CAPE, "MUCAPE": MUCAPE}
 
             fig_s, ax_s = plt.subplots(figsize=(7, 9))
 
@@ -1157,7 +1174,8 @@ def _match_raw_geojson_key(sta_name):
             return k
     return None
 
-def _half_circle_svg(map_key, has00, has12, tag00="", tag12="", pw00=None, pw12=None):
+def _half_circle_svg(map_key, has00, has12, tag00="", tag12="", pw00=None, pw12=None,
+                      cape00=False, cape12=False, mucape00=False, mucape12=False):
     c00 = GREEN if has00 else GREY
     c12 = GREEN if has12 else GREY
     key00 = f"{map_key}|00Z"
@@ -1186,6 +1204,23 @@ def _half_circle_svg(map_key, has00, has12, tag00="", tag12="", pw00=None, pw12=
             {_single_badge(tag00)}{_single_badge(tag12)}
             </div>"""
 
+    # CAPE / MUCAPE badges — split 00Z (left pair) / 12Z (right pair), shown only when positive
+    def _cape_badge(positive, label, color):
+        if not positive:
+            return ""
+        return f"""<div style="font-size:7px;font-weight:bold;color:white;
+            background:{color};border-radius:2px;padding:0px 2px;
+            text-align:center;white-space:nowrap;">{label}</div>"""
+
+    cape_row_html = ""
+    if cape00 or cape12 or mucape00 or mucape12:
+        left  = _cape_badge(cape00, "C", "#2ca02c") + _cape_badge(mucape00, "MU", "#9467bd")
+        right = _cape_badge(cape12, "C", "#2ca02c") + _cape_badge(mucape12, "MU", "#9467bd")
+        cape_row_html = f"""<div style="display:flex;flex-direction:row;gap:4px;margin-bottom:1px;">
+            <div style="display:flex;gap:1px;">{left}</div>
+            <div style="display:flex;gap:1px;">{right}</div>
+            </div>"""
+
     # wind label line, e.g. "35/42kt" (00Z/12Z), shown below the circle
     def _fmt(pw):
         return f"{pw:.0f}" if pw is not None else "-"
@@ -1197,6 +1232,7 @@ def _half_circle_svg(map_key, has00, has12, tag00="", tag12="", pw00=None, pw12=
 
     return f"""
     <div style="display:flex;flex-direction:column;align-items:center;">
+      {cape_row_html}
       {badge_html}
       <svg width="20" height="20" viewBox="0 0 22 22" xmlns="http://www.w3.org/2000/svg">
         <path d="M11,11 L11,1 A10,10 0 0,0 11,21 Z" fill="{c00}" stroke="#333" stroke-width="0.7"
@@ -1323,15 +1359,32 @@ for s in UPPER_AIR_STATIONS:
     pw12 = (_pw_dict.get((name, "12Z")) if _pw_dict.get((name, "12Z")) is not None
             else _pw_dict.get((map_key, "12Z"))) if has12 else None
 
-    icon_html = _half_circle_svg(map_key, has00, has12, tag00=tag00, tag12=tag12, pw00=pw00, pw12=pw12)
+    _cape_dict = globals().get('station_cape', {})
+    _cape00 = (_cape_dict.get((name, "00Z")) or _cape_dict.get((map_key, "00Z"))) if has00 else None
+    _cape12 = (_cape_dict.get((name, "12Z")) or _cape_dict.get((map_key, "12Z"))) if has12 else None
+    cape00   = bool(_cape00 and (_cape00.get("CAPE") or 0) > 0)
+    cape12   = bool(_cape12 and (_cape12.get("CAPE") or 0) > 0)
+    mucape00 = bool(_cape00 and (_cape00.get("MUCAPE") or 0) > 0)
+    mucape12 = bool(_cape12 and (_cape12.get("MUCAPE") or 0) > 0)
+
+    icon_html = _half_circle_svg(map_key, has00, has12, tag00=tag00, tag12=tag12, pw00=pw00, pw12=pw12,
+                                  cape00=cape00, cape12=cape12, mucape00=mucape00, mucape12=mucape12)
 
     tooltip_lines = [name]
     tooltip_lines.append(f"00Z: {'✓ ' + sum00 if has00 else '✗'}")
     tooltip_lines.append(f"12Z: {'✓ ' + sum12 if has12 else '✗'}")
+    if cape00 or mucape00 or cape12 or mucape12:
+        def _cape_tag(c, mu):
+            parts = []
+            if c:  parts.append("CAPE+")
+            if mu: parts.append("MUCAPE+")
+            return "/".join(parts) if parts else "-"
+        tooltip_lines.append(f"00Z: {_cape_tag(cape00, mucape00)} &nbsp;&nbsp; 12Z: {_cape_tag(cape12, mucape12)}")
     tooltip_text = "<br>".join(tooltip_lines)
 
     has_wind_label = (pw00 is not None) or (pw12 is not None)
-    icon_h = 22 + (10 if (tag00 or tag12) else 0) + (10 if has_wind_label else 0)
+    has_cape_row = cape00 or cape12 or mucape00 or mucape12
+    icon_h = 22 + (10 if (tag00 or tag12) else 0) + (10 if has_wind_label else 0) + (10 if has_cape_row else 0)
     icon_size = (32, icon_h)
     icon_anchor = (16, icon_h - 11)
 
@@ -1366,16 +1419,42 @@ if 'wind_zip_b64' in dir() and 'wind_zip_filename' in dir():
       </a>
     """
 
+tephi_overview_btn = ""
+if 'tephi_overview_b64' in dir():
+    tephi_overview_btn = f"""
+      <a href="data:image/png;base64,{tephi_overview_b64}" target="_blank"
+         style="display:inline-block;padding:6px 12px;background:#fff;
+                color:#ff7f0e;font-weight:bold;border:1.5px solid #ff7f0e;border-radius:5px;
+                text-decoration:none;font-size:11px;margin-top:6px;margin-left:6px;">
+        ⬚ All Tephigrams
+      </a>
+    """
+
+wind_overview_btn = ""
+if 'wind_overview_b64' in dir():
+    wind_overview_btn = f"""
+      <a href="data:image/png;base64,{wind_overview_b64}" target="_blank"
+         style="display:inline-block;padding:6px 12px;background:#fff;
+                color:#1a6fb5;font-weight:bold;border:1.5px solid #1a6fb5;border-radius:5px;
+                text-decoration:none;font-size:11px;margin-top:6px;margin-left:6px;">
+        ⬚ All Winds
+      </a>
+    """
+
 legend_html = f"""
 <div style="position: fixed; bottom: 20px; left: 20px; z-index:9999;
             background:white; padding:10px 14px; border-radius:6px;
             box-shadow:0 1px 4px rgba(0,0,0,0.3); font-size:12px; font-family:sans-serif;">
   <b>Sounding availability</b><br>
   Left half = 00Z &nbsp;&nbsp; Right half = 12Z<br>
+  <span style="background:#2ca02c;color:white;border-radius:2px;padding:0px 3px;font-size:9px;">C</span> CAPE&gt;0 &nbsp;
+  <span style="background:#9467bd;color:white;border-radius:2px;padding:0px 3px;font-size:9px;">MU</span> MUCAPE&gt;0
+  (left badge pair = 00Z, right = 12Z)<br>
   <span style="color:#2ca02c;">●</span> Available &nbsp;&nbsp;
   <span style="color:#bbbbbb;">●</span> Missing<br>
   <i>Click a half-circle to open that run's PNG</i><br>
-  {tephi_btn}{wind_btn}
+  {tephi_btn}{wind_btn}<br>
+  {tephi_overview_btn}{wind_overview_btn}
 </div>
 """
 m.get_root().html.add_child(folium.Element(legend_html))
