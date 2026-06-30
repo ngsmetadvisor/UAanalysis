@@ -2,7 +2,6 @@ name: Upper Air Analysis
 on:
   schedule:
     # Runs daily at 14:00 UTC (1400Z)
-    - cron: '47 12 * * *'
     # LLJ soundings: ~1.5-2h after the 00Z/12Z radiosonde launches
     - cron: '27 1 * * *'
     - cron: '27 13 * * *'
