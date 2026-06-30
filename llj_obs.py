@@ -1257,9 +1257,16 @@ for (sta, run), b64 in profile_png_b64.items():
 for (sta, run), b64 in wind_png_b64.items():
     png_lookup[f"{sta}|{run}|WINDS"] = b64
 
+# NEW
+# order the two runs by actual UTC date+time, not just the "00Z"/"12Z" label —
+# t12 can refer to the previous day, so it isn't always chronologically after t00
+run_order = sorted(["00Z", "12Z"], key=lambda r: run_times[r])
+run_times_iso = {r: dt.strftime("%Y-%m-%d %HZ") for r, dt in run_times.items()}
+
 png_script = folium.Element(f"""
 <script>
-
+var runOrder = {_json.dumps(run_order)};
+var runTimes = {_json.dumps(run_times_iso)};
 var pngData = {_json.dumps(png_lookup)};
 var overviewData = {{
     "tephi": {_json.dumps(tephi_overview_b64) if 'tephi_overview_b64' in dir() else 'null'},
@@ -1301,7 +1308,8 @@ function _runColumnHtml(stationKey, runLabel) {{
     var profileKey = stationKey + "|" + runLabel + "|PROFILE";
     var windsKey = stationKey + "|" + runLabel + "|WINDS";
     var hasAny = false;
-    var inner = '<h3 style="font-family:sans-serif;margin:4px 0;">' + runLabel + '</h3>';
+    var headerLabel = runTimes[runLabel] ? (runLabel + ' \u2014 ' + runTimes[runLabel]) : runLabel;
+    var inner = '<h3 style="font-family:sans-serif;margin:4px 0;">' + headerLabel + '</h3>';
     if (pngData[profileKey]) {{
         inner += '<div style="font-family:sans-serif;font-size:12px;font-weight:bold;margin-top:6px;">Tephigram / CAPE</div>' +
                  '<img src="data:image/png;base64,' + pngData[profileKey] + '" style="max-width:100%;">';
@@ -1318,12 +1326,13 @@ function _runColumnHtml(stationKey, runLabel) {{
     return inner;
 }}
 
+
 function openSoundingBoth(stationKey) {{
     var html = '<title>' + stationKey + '</title>' +
         '<div style="display:flex;flex-direction:row;width:100%;">' +
-        '<div style="flex:1;padding:8px;box-sizing:border-box;">' + _runColumnHtml(stationKey, "00Z") + '</div>' +
+        '<div style="flex:1;padding:8px;box-sizing:border-box;">' + _runColumnHtml(stationKey, runOrder[0]) + '</div>' +
         '<div style="width:1px;background:#ccc;"></div>' +
-        '<div style="flex:1;padding:8px;box-sizing:border-box;">' + _runColumnHtml(stationKey, "12Z") + '</div>' +
+        '<div style="flex:1;padding:8px;box-sizing:border-box;">' + _runColumnHtml(stationKey, runOrder[1]) + '</div>' +
         '</div>';
     var w = window.open("");
     w.document.write(html);
