@@ -33,7 +33,7 @@ STATIONS = {
     "Stoney Plain":  "DQ5dW_jH",
     "Fort Nelson":   "n0fezuMf",
     "Prince George": "Yrmut1Ai",
-    #"Kelowna":       "jrJ2Lg7d",
+    "Kelowna":       "jrJ2Lg7d",
     "Norman Wells":  "Y_OSKzQA",
     "Glasgow":       "gJwb_qee",
     "Great Falls":   "h2yCuWZc",
@@ -159,7 +159,7 @@ UPPER_AIR_STATIONS = [
     {'id':'YYE',  'name':'Fort Nelson',            'lat':58.84, 'lon':-122.60, 'wmo':'71945'},
     {'id':'YEV',  'name':'Inuvik',                 'lat':68.30, 'lon':-133.48, 'wmo':'71957'},
     {'id':'ZXS', 'name':'Prince George',          'lat':53.88, 'lon':-122.68, 'wmo':'71908'},
-    {'id':'WLW', 'name':'Vernon',                 'lat':50.24, 'lon':-119.29, 'wmo':'73033'},
+    {'id':'WLW', 'name':'Kelowna',                 'lat':50.24, 'lon':-119.29, 'wmo':'73033'},
     {'id':'YZT',  'name':'Port Hardy',             'lat':50.68, 'lon':-127.37, 'wmo':'71109'},
     # ── ALASKA ──
     #{'id':'BRW',  'name':'Utqiagvik (Barrow)',     'lat':71.30, 'lon':-156.78, 'wmo':'70026'},
