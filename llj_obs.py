@@ -1446,4 +1446,7 @@ date_html = f"""
 """
 m.get_root().html.add_child(folium.Element(date_html))
 
-m
+map_filename = "index.html"
+map_path = os.path.join(OUTPUT_DIR, map_filename)
+m.save(map_path)
+print(f"Saved: {map_path}")
