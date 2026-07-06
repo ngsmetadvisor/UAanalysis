@@ -2,6 +2,8 @@ name: LLJ Soundings (radiosonde wind/CAPE)
 
 on:
   workflow_dispatch: {}
+  repository_dispatch:
+    types: [run-llj-obs]
 
 concurrency:
   group: llj-obs
