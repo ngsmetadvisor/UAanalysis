@@ -911,7 +911,7 @@ else:
         ax.set_title(title_str, fontsize=8, fontweight="bold", color="#333333", pad=3)
 
         cape_label = f"CAPE {CAPE:.0f} J/kg   MUCAPE {MUCAPE:.0f} J/kg"
-        ax.text(0.02, 0.98, cape_label, transform=ax.transAxes,
+        ax.text(0.98, 0.98, cape_label, transform=ax.transAxes,
                 fontsize=7, fontweight="bold", color="#333333",
                 ha="right", va="top", zorder=10,
                 bbox=dict(boxstyle="round,pad=0.25", fc="white", ec="#999999", alpha=0.85))
@@ -1096,7 +1096,7 @@ else:
                            fontsize=10, fontweight="bold", color="#333333")
 
             cape_label_s = f"CAPE {CAPE:.0f} J/kg   MUCAPE {MUCAPE:.0f} J/kg"
-            ax_s.text(0.02, 0.98, cape_label_s, transform=ax_s.transAxes,
+            ax_s.text(0.98, 0.98, cape_label_s, transform=ax_s.transAxes,
                       fontsize=9, fontweight="bold", color="#333333",
                       ha="right", va="top", zorder=10,
                       bbox=dict(boxstyle="round,pad=0.3", fc="white", ec="#999999", alpha=0.85))
