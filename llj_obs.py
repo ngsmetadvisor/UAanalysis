@@ -1231,9 +1231,14 @@ def _half_circle_svg(map_key, has00, has12, tag00="", tag12="", pw00=None, pw12=
             background:rgba(255,255,255,0.85);border-radius:3px;padding:0px 2px;
             text-align:center;white-space:nowrap;margin-top:1px;">{_fmt(pw00)}/{_fmt(pw12)}kt</div>"""
 
-    date_label = run_times_iso.get("00Z", "").split(" ")[0] if 'run_times_iso' in dir() else ""
-    date_time_html = f"""<div style="font-size:7px;color:#555;
-        white-space:nowrap;text-align:center;margin-top:1px;">{date_label}</div>""" if date_label else ""
+    dt00_full = run_times_iso.get("00Z", "") if 'run_times_iso' in dir() else ""
+    dt12_full = run_times_iso.get("12Z", "") if 'run_times_iso' in dir() else ""
+    date_time_html = ""
+    if dt00_full or dt12_full:
+        date_time_html = f"""<div style="font-size:7px;color:#555;
+            white-space:nowrap;text-align:center;margin-top:1px;line-height:1.3;">
+            {dt00_full}<br>{dt12_full}
+            </div>"""
 
     return f"""
     <div style="display:flex;flex-direction:column;align-items:center;">
@@ -1413,9 +1418,9 @@ for s in UPPER_AIR_STATIONS:
 
     has_wind_label = (pw00 is not None) or (pw12 is not None)
     has_cape_row = cape00 or cape12 or mucape00 or mucape12
-    icon_h = 22 + (10 if (tag00 or tag12) else 0) + (10 if has_wind_label else 0) + (10 if has_cape_row else 0) + 9
+    icon_h = 22 + (10 if (tag00 or tag12) else 0) + (10 if has_wind_label else 0) + (10 if has_cape_row else 0) + 18
     icon_size = (32, icon_h)
-    icon_anchor = (16, icon_h - 20)
+    icon_anchor = (16, icon_h - 29)
 
     folium.Marker(
         location=[s["lat"], s["lon"]],
