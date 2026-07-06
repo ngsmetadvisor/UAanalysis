@@ -606,7 +606,7 @@ def compute_cape_cin(p_arr, T_arr, Td_arr):
         T_env = 0.5 * (T[i] + T[i+1])
         T_par = parcel_T(p_mid)
         # dz via hypsometric
-        dz = -Rd * T_env / (9.81 * p_mid) * (p[i+1] - p[i]) * 100.0
+        dz = -Rd * T_env / (9.81 * p_mid * 100.0) * (p[i+1] - p[i]) * 100.0
         buoy = 9.81 * (T_par - T_env) / T_env * dz
         if buoy > 0:
             CAPE += buoy
@@ -656,7 +656,7 @@ def compute_cape_from_level(p_arr, T_arr, Td_arr, idx0, Td_surface=None):
         p_mid = 0.5 * (p[i] + p[i+1])
         T_env = 0.5 * (T[i] + T[i+1])
         T_par = parcel_T(p_mid)
-        dz = -Rd * T_env / (9.81 * p_mid) * (p[i+1] - p[i]) * 100.0
+        dz = -Rd * T_env / (9.81 * p_mid * 100.0) * (p[i+1] - p[i]) * 100.0
         buoy = 9.81 * (T_par - T_env) / T_env * dz
         if buoy > 0:
             CAPE += buoy
@@ -1175,7 +1175,7 @@ def _match_raw_geojson_key(sta_name):
     return None
 
 def _half_circle_svg(map_key, has00, has12, tag00="", tag12="", pw00=None, pw12=None,
-                      cape00=False, cape12=False, mucape00=False, mucape12=False):
+                      cape00=None, cape12=None, mucape00=None, mucape12=None):
     c00 = GREEN if has00 else GREY
     c12 = GREEN if has12 else GREY
     key00 = f"{map_key}|00Z"
@@ -1205,17 +1205,18 @@ def _half_circle_svg(map_key, has00, has12, tag00="", tag12="", pw00=None, pw12=
             </div>"""
 
     # CAPE / MUCAPE badges — split 00Z (left pair) / 12Z (right pair), shown only when positive
-    def _cape_badge(positive, label, color):
-        if not positive:
+    # colors match the tephigram chart: orange = surface parcel (CAPE), purple = MU parcel (MUCAPE)
+    def _cape_badge(value, label, color):
+        if not value or value <= 0:
             return ""
         return f"""<div style="font-size:7px;font-weight:bold;color:white;
             background:{color};border-radius:2px;padding:0px 2px;
-            text-align:center;white-space:nowrap;">{label}</div>"""
+            text-align:center;white-space:nowrap;">{label} {value:.0f}J</div>"""
 
     cape_row_html = ""
     if cape00 or cape12 or mucape00 or mucape12:
-        left  = _cape_badge(cape00, "C", "#2ca02c") + _cape_badge(mucape00, "MU", "#9467bd")
-        right = _cape_badge(cape12, "C", "#2ca02c") + _cape_badge(mucape12, "MU", "#9467bd")
+        left  = _cape_badge(cape00, "CAPE", "#ff7f0e") + _cape_badge(mucape00, "MU", "purple")
+        right = _cape_badge(cape12, "CAPE", "#ff7f0e") + _cape_badge(mucape12, "MU", "purple")
         cape_row_html = f"""<div style="display:flex;flex-direction:row;gap:4px;margin-bottom:1px;">
             <div style="display:flex;gap:1px;">{left}</div>
             <div style="display:flex;gap:1px;">{right}</div>
@@ -1230,6 +1231,10 @@ def _half_circle_svg(map_key, has00, has12, tag00="", tag12="", pw00=None, pw12=
             background:rgba(255,255,255,0.85);border-radius:3px;padding:0px 2px;
             text-align:center;white-space:nowrap;margin-top:1px;">{_fmt(pw00)}/{_fmt(pw12)}kt</div>"""
 
+    date_label = run_times_iso.get("00Z", "").split(" ")[0] if 'run_times_iso' in dir() else ""
+    date_time_html = f"""<div style="font-size:7px;color:#555;
+        white-space:nowrap;text-align:center;margin-top:1px;">{date_label}</div>""" if date_label else ""
+
     return f"""
     <div style="display:flex;flex-direction:column;align-items:center;">
       {cape_row_html}
@@ -1241,6 +1246,7 @@ def _half_circle_svg(map_key, has00, has12, tag00="", tag12="", pw00=None, pw12=
               style="cursor:pointer" onclick="openSoundingBoth('{map_key}')"/>
       </svg>
       {wind_label_html}
+      {date_time_html}
     </div>
     """
 
@@ -1385,10 +1391,10 @@ for s in UPPER_AIR_STATIONS:
     _cape_dict = globals().get('station_cape', {})
     _cape00 = (_cape_dict.get((name, "00Z")) or _cape_dict.get((map_key, "00Z"))) if has00 else None
     _cape12 = (_cape_dict.get((name, "12Z")) or _cape_dict.get((map_key, "12Z"))) if has12 else None
-    cape00   = bool(_cape00 and (_cape00.get("CAPE") or 0) > 0)
-    cape12   = bool(_cape12 and (_cape12.get("CAPE") or 0) > 0)
-    mucape00 = bool(_cape00 and (_cape00.get("MUCAPE") or 0) > 0)
-    mucape12 = bool(_cape12 and (_cape12.get("MUCAPE") or 0) > 0)
+    cape00   = _cape00.get("CAPE") if _cape00 else None
+    cape12   = _cape12.get("CAPE") if _cape12 else None
+    mucape00 = _cape00.get("MUCAPE") if _cape00 else None
+    mucape12 = _cape12.get("MUCAPE") if _cape12 else None
 
     icon_html = _half_circle_svg(map_key, has00, has12, tag00=tag00, tag12=tag12, pw00=pw00, pw12=pw12,
                                   cape00=cape00, cape12=cape12, mucape00=mucape00, mucape12=mucape12)
@@ -1407,9 +1413,9 @@ for s in UPPER_AIR_STATIONS:
 
     has_wind_label = (pw00 is not None) or (pw12 is not None)
     has_cape_row = cape00 or cape12 or mucape00 or mucape12
-    icon_h = 22 + (10 if (tag00 or tag12) else 0) + (10 if has_wind_label else 0) + (10 if has_cape_row else 0)
+    icon_h = 22 + (10 if (tag00 or tag12) else 0) + (10 if has_wind_label else 0) + (10 if has_cape_row else 0) + 9
     icon_size = (32, icon_h)
-    icon_anchor = (16, icon_h - 11)
+    icon_anchor = (16, icon_h - 20)
 
     folium.Marker(
         location=[s["lat"], s["lon"]],
@@ -1472,8 +1478,8 @@ legend_html = f"""
             box-shadow:0 1px 4px rgba(0,0,0,0.3); font-size:12px; font-family:sans-serif;">
   <b>Sounding availability</b><br>
   Left half = 00Z &nbsp;&nbsp; Right half = 12Z<br>
-  <span style="background:#2ca02c;color:white;border-radius:2px;padding:0px 3px;font-size:9px;">C</span> CAPE&gt;0 &nbsp;
-  <span style="background:#9467bd;color:white;border-radius:2px;padding:0px 3px;font-size:9px;">MU</span> MUCAPE&gt;0
+  <span style="background:#ff7f0e;color:white;border-radius:2px;padding:0px 3px;font-size:9px;">CAPE</span> Surface parcel &nbsp;
+  <span style="background:purple;color:white;border-radius:2px;padding:0px 3px;font-size:9px;">MU</span> Most-unstable parcel
   (left badge pair = 00Z, right = 12Z)<br>
   <span style="color:#2ca02c;">●</span> Available &nbsp;&nbsp;
   <span style="color:#bbbbbb;">●</span> Missing<br>
