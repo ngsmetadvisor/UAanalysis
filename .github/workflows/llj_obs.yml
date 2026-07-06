@@ -2,11 +2,7 @@ name: LLJ Soundings (radiosonde wind/CAPE)
 
 on:
   workflow_dispatch: {}
-  schedule:
-    # Runs daily at 14:00 UTC (1400Z)
-    # LLJ soundings: ~1.5-2h after the 00Z/12Z radiosonde launches
-    - cron: '27 1 * * *'
-    - cron: '27 13 * * *'
+
 concurrency:
   group: llj-obs
   cancel-in-progress: false
