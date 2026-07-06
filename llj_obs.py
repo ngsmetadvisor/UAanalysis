@@ -1153,9 +1153,13 @@ else:
 # @title Station Coverage Map (00Z / 12Z)
 import folium
 import json as _json
+from datetime import datetime, timezone
 
 GREEN = "#2ca02c"
 GREY  = "#bbbbbb"
+
+# Data run date/time label — set RUN_DATE_STR earlier in the notebook to override
+RUN_DATE_STR = globals().get('RUN_DATE_STR', datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%MZ'))
 
 def _norm(s):
     return s.lower().replace(",", "").strip()
@@ -1174,12 +1178,9 @@ def _match_raw_geojson_key(sta_name):
             return k
     return None
 
-def _half_circle_svg(map_key, has00, has12, tag00="", tag12="", pw00=None, pw12=None,
-                      cape00=None, cape12=None, mucape00=None, mucape12=None):
+def _half_circle_svg(map_key, has00, has12, tag00="", tag12="", pw00=None, pw12=None, cape00=None, cape12=None, mucape00=None, mucape12=None):
     c00 = GREEN if has00 else GREY
     c12 = GREEN if has12 else GREY
-    key00 = f"{map_key}|00Z"
-    key12 = f"{map_key}|12Z"
 
     def _tag_color(tag):
         if tag == "CB":
@@ -1188,70 +1189,64 @@ def _half_circle_svg(map_key, has00, has12, tag00="", tag12="", pw00=None, pw12=
             return "#ff7f0e"
         return None
 
-    # two small badges side by side (00Z left, 12Z right), shown only if present
-    def _single_badge(tag):
+    def _badge(tag):
         color = _tag_color(tag)
         if not color:
-            return """<div style="font-size:8px;font-weight:bold;color:transparent;
-                padding:0px 3px;">--</div>"""
-        return f"""<div style="font-size:8px;font-weight:bold;color:white;
-            background:{color};border-radius:3px;padding:0px 3px;
+            return ""
+        return f"""<div style="font-size:11px;font-weight:bold;color:white;
+            background:{color};border-radius:3px;padding:1px 4px;
             text-align:center;white-space:nowrap;">{tag}</div>"""
 
-    badge_html = ""
-    if tag00 or tag12:
-        badge_html = f"""<div style="display:flex;flex-direction:row;gap:1px;margin-bottom:1px;">
-            {_single_badge(tag00)}{_single_badge(tag12)}
-            </div>"""
+    def _cape_label(cape, mucape):
+        parts = []
+        if cape is not None and cape > 0:
+            parts.append(f"""<div style="font-size:11px;font-weight:bold;color:#ff7f0e;
+                background:rgba(255,255,255,0.85);border-radius:3px;padding:1px 3px;
+                text-align:center;white-space:nowrap;">CAPE {cape:.0f}J</div>""")
+        if mucape is not None and mucape > 0:
+            parts.append(f"""<div style="font-size:11px;font-weight:bold;color:purple;
+                background:rgba(255,255,255,0.85);border-radius:3px;padding:1px 3px;
+                text-align:center;white-space:nowrap;">MU {mucape:.0f}J</div>""")
+        return "".join(parts)
 
-    # CAPE / MUCAPE badges — split 00Z (left pair) / 12Z (right pair), shown only when positive
-    # colors match the tephigram chart: orange = surface parcel (CAPE), purple = MU parcel (MUCAPE)
-    def _cape_badge(value, label, color):
-        if not value or value <= 0:
+    def _wind_label(pw):
+        if pw is None:
             return ""
-        return f"""<div style="font-size:7px;font-weight:bold;color:white;
-            background:{color};border-radius:2px;padding:0px 2px;
-            text-align:center;white-space:nowrap;">{label} {value:.0f}J</div>"""
+        return f"""<div style="font-size:11px;font-weight:bold;color:#222;
+            background:rgba(255,255,255,0.85);border-radius:3px;padding:1px 3px;
+            text-align:center;white-space:nowrap;">{pw:.0f}kt</div>"""
 
-    cape_row_html = ""
-    if cape00 or cape12 or mucape00 or mucape12:
-        left  = _cape_badge(cape00, "CAPE", "#ff7f0e") + _cape_badge(mucape00, "MU", "purple")
-        right = _cape_badge(cape12, "CAPE", "#ff7f0e") + _cape_badge(mucape12, "MU", "purple")
-        cape_row_html = f"""<div style="display:flex;flex-direction:row;gap:4px;margin-bottom:1px;">
-            <div style="display:flex;gap:1px;">{left}</div>
-            <div style="display:flex;gap:1px;">{right}</div>
-            </div>"""
+    def _datetime_label(run_label):
+        run_dt = t12 if run_label == "12Z" else t00
+        try:
+            full_str = run_dt.strftime("%Y-%m-%d %HZ")
+        except Exception:
+            full_str = f"{RUN_DATE_STR.split(' ')[0] if RUN_DATE_STR else ''} {run_label}"
+        return f"""<div style="font-size:9px;color:#555;
+            white-space:nowrap;text-align:center;">{full_str}</div>"""
 
-    # wind label line, e.g. "35/42kt" (00Z/12Z), shown below the circle
-    def _fmt(pw):
-        return f"{pw:.0f}" if pw is not None else "-"
-    wind_label_html = ""
-    if pw00 is not None or pw12 is not None:
-        wind_label_html = f"""<div style="font-size:8px;font-weight:bold;color:#222;
-            background:rgba(255,255,255,0.85);border-radius:3px;padding:0px 2px;
-            text-align:center;white-space:nowrap;margin-top:1px;">{_fmt(pw00)}/{_fmt(pw12)}kt</div>"""
+    def _side_column(tag, cape, mucape, pw, align, run_label):
+        parts = [p for p in (_badge(tag), _cape_label(cape, mucape), _wind_label(pw)) if p]
+        if not parts:
+            return ""
+        parts.append(_datetime_label(run_label))
+        return f"""<div style="display:flex;flex-direction:column;align-items:{align};gap:1px;">
+            {''.join(parts)}
+        </div>"""
 
-    dt00_full = run_times_iso.get("00Z", "") if 'run_times_iso' in dir() else ""
-    dt12_full = run_times_iso.get("12Z", "") if 'run_times_iso' in dir() else ""
-    date_time_html = ""
-    if dt00_full or dt12_full:
-        date_time_html = f"""<div style="font-size:7px;color:#555;
-            white-space:nowrap;text-align:center;margin-top:1px;line-height:1.3;">
-            {dt00_full}<br>{dt12_full}
-            </div>"""
+    left_col = _side_column(tag00, cape00, mucape00, pw00, "flex-end", "00Z")
+    right_col = _side_column(tag12, cape12, mucape12, pw12, "flex-start", "12Z")
 
     return f"""
-    <div style="display:flex;flex-direction:column;align-items:center;">
-      {cape_row_html}
-      {badge_html}
-      <svg width="20" height="20" viewBox="0 0 22 22" xmlns="http://www.w3.org/2000/svg">
+    <div style="display:flex;flex-direction:row;align-items:center;">
+      {left_col}
+      <svg width="26" height="26" viewBox="0 0 22 22" xmlns="http://www.w3.org/2000/svg" style="flex-shrink:0;">
         <path d="M11,11 L11,1 A10,10 0 0,0 11,21 Z" fill="{c00}" stroke="#333" stroke-width="0.7"
               style="cursor:pointer" onclick="openSoundingBoth('{map_key}')"/>
         <path d="M11,11 L11,21 A10,10 0 0,0 11,1 Z" fill="{c12}" stroke="#333" stroke-width="0.7"
               style="cursor:pointer" onclick="openSoundingBoth('{map_key}')"/>
       </svg>
-      {wind_label_html}
-      {date_time_html}
+      {right_col}
     </div>
     """
 
@@ -1268,30 +1263,9 @@ for (sta, run), b64 in profile_png_b64.items():
 for (sta, run), b64 in wind_png_b64.items():
     png_lookup[f"{sta}|{run}|WINDS"] = b64
 
-# NEW
-# order the two runs by actual UTC date+time, not just the "00Z"/"12Z" label —
-# t12 can refer to the previous day, so it isn't always chronologically after t00
-run_order = sorted(["00Z", "12Z"], key=lambda r: run_times[r])
-run_times_iso = {r: dt.strftime("%Y-%m-%d %HZ") for r, dt in run_times.items()}
-
 png_script = folium.Element(f"""
 <script>
-var runOrder = {_json.dumps(run_order)};
-var runTimes = {_json.dumps(run_times_iso)};
 var pngData = {_json.dumps(png_lookup)};
-var overviewData = {{
-    "tephi": {_json.dumps(tephi_overview_b64) if 'tephi_overview_b64' in dir() else 'null'},
-    "wind": {_json.dumps(wind_overview_b64) if 'wind_overview_b64' in dir() else 'null'}
-}};
-function openOverview(kind) {{
-    var b64 = overviewData[kind];
-    if (!b64) {{
-        alert("Overview image not available");
-        return;
-    }}
-    var w = window.open("");
-    w.document.write('<title>' + kind + ' overview</title><img src="data:image/png;base64,' + b64 + '" style="max-width:100%;">');
-}}
 function openSounding(baseKey) {{
     var profileKey = baseKey + "|PROFILE";
     var windsKey = baseKey + "|WINDS";
@@ -1319,8 +1293,7 @@ function _runColumnHtml(stationKey, runLabel) {{
     var profileKey = stationKey + "|" + runLabel + "|PROFILE";
     var windsKey = stationKey + "|" + runLabel + "|WINDS";
     var hasAny = false;
-    var headerLabel = runTimes[runLabel] ? (runLabel + ' \u2014 ' + runTimes[runLabel]) : runLabel;
-    var inner = '<h3 style="font-family:sans-serif;margin:4px 0;">' + headerLabel + '</h3>';
+    var inner = '<h3 style="font-family:sans-serif;margin:4px 0;">' + runLabel + '</h3>';
     if (pngData[profileKey]) {{
         inner += '<div style="font-family:sans-serif;font-size:12px;font-weight:bold;margin-top:6px;">Tephigram / CAPE</div>' +
                  '<img src="data:image/png;base64,' + pngData[profileKey] + '" style="max-width:100%;">';
@@ -1337,13 +1310,12 @@ function _runColumnHtml(stationKey, runLabel) {{
     return inner;
 }}
 
-
 function openSoundingBoth(stationKey) {{
     var html = '<title>' + stationKey + '</title>' +
         '<div style="display:flex;flex-direction:row;width:100%;">' +
-        '<div style="flex:1;padding:8px;box-sizing:border-box;">' + _runColumnHtml(stationKey, runOrder[0]) + '</div>' +
+        '<div style="flex:1;padding:8px;box-sizing:border-box;">' + _runColumnHtml(stationKey, "00Z") + '</div>' +
         '<div style="width:1px;background:#ccc;"></div>' +
-        '<div style="flex:1;padding:8px;box-sizing:border-box;">' + _runColumnHtml(stationKey, runOrder[1]) + '</div>' +
+        '<div style="flex:1;padding:8px;box-sizing:border-box;">' + _runColumnHtml(stationKey, "12Z") + '</div>' +
         '</div>';
     var w = window.open("");
     w.document.write(html);
@@ -1387,12 +1359,6 @@ for s in UPPER_AIR_STATIONS:
     tag00 = (_inst_dict.get((name, "00Z")) or _inst_dict.get((map_key, "00Z"), {})).get("tag", "") if has00 else ""
     tag12 = (_inst_dict.get((name, "12Z")) or _inst_dict.get((map_key, "12Z"), {})).get("tag", "") if has12 else ""
 
-    _pw_dict = globals().get('station_peak_wind', {})
-    pw00 = (_pw_dict.get((name, "00Z")) if _pw_dict.get((name, "00Z")) is not None
-            else _pw_dict.get((map_key, "00Z"))) if has00 else None
-    pw12 = (_pw_dict.get((name, "12Z")) if _pw_dict.get((name, "12Z")) is not None
-            else _pw_dict.get((map_key, "12Z"))) if has12 else None
-
     _cape_dict = globals().get('station_cape', {})
     _cape00 = (_cape_dict.get((name, "00Z")) or _cape_dict.get((map_key, "00Z"))) if has00 else None
     _cape12 = (_cape_dict.get((name, "12Z")) or _cape_dict.get((map_key, "12Z"))) if has12 else None
@@ -1401,26 +1367,30 @@ for s in UPPER_AIR_STATIONS:
     mucape00 = _cape00.get("MUCAPE") if _cape00 else None
     mucape12 = _cape12.get("MUCAPE") if _cape12 else None
 
-    icon_html = _half_circle_svg(map_key, has00, has12, tag00=tag00, tag12=tag12, pw00=pw00, pw12=pw12,
-                                  cape00=cape00, cape12=cape12, mucape00=mucape00, mucape12=mucape12)
+    _pw_dict = globals().get('station_peak_wind', {})
+    pw00 = (_pw_dict.get((name, "00Z")) if _pw_dict.get((name, "00Z")) is not None
+            else _pw_dict.get((map_key, "00Z"))) if has00 else None
+    pw12 = (_pw_dict.get((name, "12Z")) if _pw_dict.get((name, "12Z")) is not None
+            else _pw_dict.get((map_key, "12Z"))) if has12 else None
+
+    icon_html = _half_circle_svg(map_key, has00, has12, tag00=tag00, tag12=tag12,
+                                  pw00=pw00, pw12=pw12, cape00=cape00, cape12=cape12,
+                                  mucape00=mucape00, mucape12=mucape12)
 
     tooltip_lines = [name]
     tooltip_lines.append(f"00Z: {'✓ ' + sum00 if has00 else '✗'}")
     tooltip_lines.append(f"12Z: {'✓ ' + sum12 if has12 else '✗'}")
-    if cape00 or mucape00 or cape12 or mucape12:
-        def _cape_tag(c, mu):
-            parts = []
-            if c:  parts.append("CAPE+")
-            if mu: parts.append("MUCAPE+")
-            return "/".join(parts) if parts else "-"
-        tooltip_lines.append(f"00Z: {_cape_tag(cape00, mucape00)} &nbsp;&nbsp; 12Z: {_cape_tag(cape12, mucape12)}")
-    tooltip_text = "<br>".join(tooltip_lines)
+    tooltip_text = "<span style='font-size:14px;'>" + "<br>".join(tooltip_lines) + "</span>"
 
-    has_wind_label = (pw00 is not None) or (pw12 is not None)
-    has_cape_row = cape00 or cape12 or mucape00 or mucape12
-    icon_h = 22 + (10 if (tag00 or tag12) else 0) + (10 if has_wind_label else 0) + (10 if has_cape_row else 0) + 18
-    icon_size = (32, icon_h)
-    icon_anchor = (16, icon_h - 29)
+    has_left = bool(tag00) or (cape00 is not None) or (mucape00 is not None) or (pw00 is not None)
+    has_right = bool(tag12) or (cape12 is not None) or (mucape12 is not None) or (pw12 is not None)
+    col_w = 66
+    left_w = col_w if has_left else 0
+    right_w = col_w if has_right else 0
+    icon_w = 26 + left_w + right_w
+    icon_h = 58 if (has_left or has_right) else 26
+    icon_size = (icon_w, icon_h)
+    icon_anchor = (left_w + 13, icon_h // 2)
 
     folium.Marker(
         location=[s["lat"], s["lon"]],
@@ -1453,50 +1423,27 @@ if 'wind_zip_b64' in dir() and 'wind_zip_filename' in dir():
       </a>
     """
 
-
-tephi_overview_btn = ""
-if 'tephi_overview_b64' in dir():
-    tephi_overview_btn = """
-      <a href="#" onclick="openOverview('tephi');return false;"
-         style="display:inline-block;padding:6px 12px;background:#fff;
-                color:#ff7f0e;font-weight:bold;border:1.5px solid #ff7f0e;border-radius:5px;
-                text-decoration:none;font-size:11px;margin-top:6px;margin-left:6px;">
-        ⬚ All Tephigrams
-      </a>
-    """
-
-
-wind_overview_btn = ""
-if 'wind_overview_b64' in dir():
-    wind_overview_btn = """
-      <a href="#" onclick="openOverview('wind');return false;"
-         style="display:inline-block;padding:6px 12px;background:#fff;
-                color:#1a6fb5;font-weight:bold;border:1.5px solid #1a6fb5;border-radius:5px;
-                text-decoration:none;font-size:11px;margin-top:6px;margin-left:6px;">
-        ⬚ All Winds
-      </a>
-    """
-
 legend_html = f"""
 <div style="position: fixed; bottom: 20px; left: 20px; z-index:9999;
             background:white; padding:10px 14px; border-radius:6px;
-            box-shadow:0 1px 4px rgba(0,0,0,0.3); font-size:12px; font-family:sans-serif;">
+            box-shadow:0 1px 4px rgba(0,0,0,0.3); font-size:15px; font-family:sans-serif;">
   <b>Sounding availability</b><br>
   Left half = 00Z &nbsp;&nbsp; Right half = 12Z<br>
-  <span style="background:#ff7f0e;color:white;border-radius:2px;padding:0px 3px;font-size:9px;">CAPE</span> Surface parcel &nbsp;
-  <span style="background:purple;color:white;border-radius:2px;padding:0px 3px;font-size:9px;">MU</span> Most-unstable parcel
-  (left badge pair = 00Z, right = 12Z)<br>
   <span style="color:#2ca02c;">●</span> Available &nbsp;&nbsp;
   <span style="color:#bbbbbb;">●</span> Missing<br>
   <i>Click a half-circle to open that run's PNG</i><br>
-  {tephi_btn}{wind_btn}<br>
-  {tephi_overview_btn}{wind_overview_btn}
+  {tephi_btn}{wind_btn}
 </div>
 """
 m.get_root().html.add_child(folium.Element(legend_html))
 
-run_date_map = (t12 if PLOT_RUN == "12Z" else t00).strftime("%Y-%m-%d")
-map_filename = f"index.html"
-map_path = os.path.join(OUTPUT_DIR, map_filename)
-m.save(map_path)
-print(f"Saved: {map_path}")
+date_html = f"""
+<div style="position: fixed; top: 20px; left: 20px; z-index:9999;
+            background:white; padding:8px 14px; border-radius:6px;
+            box-shadow:0 1px 4px rgba(0,0,0,0.3); font-size:13px; font-family:sans-serif;">
+  <b>Data date:</b> {RUN_DATE_STR}
+</div>
+"""
+m.get_root().html.add_child(folium.Element(date_html))
+
+m
