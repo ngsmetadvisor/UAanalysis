@@ -742,16 +742,16 @@ def parse_full(geojson):
         if feat["geometry"]["type"] != "Point":
             continue
         pr = feat["properties"]
-        if any(pr.get(k) is None for k in ("pressure","temp","dewpoint","wind_u","wind_v","gpheight")):
+        if any(pr.get(k) is None for k in ("pressure","temp","dewpoint","gpheight")):
             continue
         p.append(pr["pressure"])
         T.append(pr["temp"])        # K
         Td.append(pr["dewpoint"])   # K
-        u.append(pr["wind_u"])
-        v.append(pr["wind_v"])
+        u.append(pr.get("wind_u"))  # may be None — barb-only field
+        v.append(pr.get("wind_v"))  # may be None — barb-only field
         h.append(pr["gpheight"])
     arr = np.array
-    return arr(p), arr(T), arr(Td), arr(u), arr(v), arr(h)
+    return arr(p), arr(T, dtype=float), arr(Td, dtype=float), arr(u, dtype=float), arr(v, dtype=float), arr(h, dtype=float)
 
 # ── plot layout ───────────────────────────────────────────────────────────────
 
@@ -894,7 +894,7 @@ else:
         p_barb_targets = np.arange(1000, P_TOP - 1, -50)
         for pt in p_barb_targets:
             i = np.argmin(np.abs(p - pt))
-            if abs(p[i] - pt) > 30:
+            if abs(p[i] - pt) > 30 or np.isnan(u[i]) or np.isnan(v[i]):
                 continue
             u_kt = u[i] * 1.94384
             v_kt = v[i] * 1.94384
@@ -1085,7 +1085,7 @@ else:
             # wind barbs
             for pt in np.arange(1000, P_TOP - 1, -50):
                 i = np.argmin(np.abs(p - pt))
-                if abs(p[i] - pt) > 30:
+                if abs(p[i] - pt) > 30 or np.isnan(u[i]) or np.isnan(v[i]):
                     continue
                 ax_s.barbs(T_MAX - 2, p[i], u[i]*1.94384, v[i]*1.94384,
                            length=5, linewidth=0.8, barbcolor="k", flagcolor="k", zorder=6)
