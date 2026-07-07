@@ -49,11 +49,11 @@ STATIONS = {
     "Yakutat":   "Pgvik9y2",
 }
 
-def windy_url(station_id, dt):
+def windy_url(station_id, dt, fmt="fm94"):
     ts = int(dt.timestamp() * 1000)
     return (
         f"https://dl.windy.com/obs/measurement/v2/radiosonde/"
-        f"{station_id}/download?time={ts}&format=fm94"
+        f"{station_id}/download?time={ts}&format={fmt}"
     )
 
 now = datetime.now(timezone.utc)
@@ -76,14 +76,18 @@ ALT_RUN  = "00Z"
 
 import requests
 
-def fetch_sounding_json(url):
-    try:
-        r = requests.get(url, timeout=30)
-        if r.status_code == 200:
-            return r.json()
-    except Exception as e:
-        print(f"  fetch error: {e}")
-    return None
+def fetch_sounding_json(station_id, dt):
+    for fmt in ("fm94", "fm35"):
+        url = windy_url(station_id, dt, fmt)
+        try:
+            r = requests.get(url, timeout=30)
+            if r.status_code == 200:
+                gj = r.json()
+                if gj.get("features"):
+                    return gj, fmt
+        except Exception as e:
+            print(f"  fetch error ({fmt}): {e}")
+    return None, None
 
 raw_geojson = {}   # name -> {run_label -> geojson dict}
 
@@ -96,8 +100,7 @@ run_times = {"00Z": t00, "12Z": t12}
 for name, sid in STATIONS.items():
     raw_geojson[name] = {}
     for run_label in (PLOT_RUN, ALT_RUN):
-        url = windy_url(sid, run_times[run_label])
-        gj = fetch_sounding_json(url)
+        gj, fmt_used = fetch_sounding_json(sid, run_times[run_label])
         if gj is None:
             raw_geojson[name][run_label] = None
         else:
