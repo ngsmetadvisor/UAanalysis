@@ -37,6 +37,13 @@ STATIONS = {
     "Norman Wells":  "Y_OSKzQA",
     "Glasgow":       "gJwb_qee",
     "Great Falls":   "h2yCuWZc",
+    "Salem":   "qJ6KLeEf",
+    "Whitehorse":   "lMAVbCN0",
+    "Annette Island":   "FmhjJ-b1",
+    "Quillayute":   "nJjLr7ob",
+    "Anchorage":   "PapA-PNT",
+    "King Salmon":   "bu72olQA",
+    "Yakutat":   "Pgvik9y2",
 }
 
 def windy_url(station_id, dt):
