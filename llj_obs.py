@@ -30,6 +30,7 @@ station_peak_wind = {}
 
 STATIONS = {
     "Fort Smith":    "gC8J3WBL",
+    "The Pas":    "mIsCguhD",
     "Stoney Plain":  "DQ5dW_jH",
     "Fort Nelson":   "n0fezuMf",
     "Prince George": "Yrmut1Ai",
