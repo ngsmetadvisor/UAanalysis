@@ -1868,6 +1868,7 @@ UPPER_AIR_STATIONS = [
     {'id':'BOI',  'name':'Boise ID',               'lat':43.57, 'lon':-116.22, 'wmo':'72681'},
     {'id':'EKO',  'name':'Elko NV',                'lat':40.87, 'lon':-115.73, 'wmo':'72582'},
     {'id':'KOAK', 'name':'Oakland CA',             'lat':37.73, 'lon':-122.22, 'wmo':'72493'},
+    {'id':'GtFl', 'name':'Great Falls MT',         'lat':47.46, 'lon':-111.39, 'wmo':'72776'},
   #  {'id':'KVBG', 'name':'Vandenberg CA',          'lat':34.73, 'lon':-120.57, 'wmo':'72393'},
     {'id':'MFR',  'name':'Medford OR',             'lat':42.37, 'lon':-122.87, 'wmo':'72597'},
     {'id':'GGW',  'name':'Glasgow MT',             'lat':48.21, 'lon':-106.62, 'wmo':'72768'},
