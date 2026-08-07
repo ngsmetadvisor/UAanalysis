@@ -1848,8 +1848,8 @@ UPPER_AIR_STATIONS = [
     {'id':'WLW', 'name':'Vernon',                 'lat':50.24, 'lon':-119.29, 'wmo':'73033'},
     {'id':'YZT',  'name':'Port Hardy',             'lat':50.68, 'lon':-127.37, 'wmo':'71109'},
     # ── ALASKA ──
-    #{'id':'BRW',  'name':'Utqiagvik (Barrow)',     'lat':71.30, 'lon':-156.78, 'wmo':'70026'},
-  #  {'id':'OTZ',  'name':'Kotzebue',               'lat':66.87, 'lon':-162.63, 'wmo':'70133'},
+    {'id':'BRW',  'name':'Utqiagvik (Barrow)',     'lat':71.30, 'lon':-156.78, 'wmo':'70026'},
+    {'id':'OTZ',  'name':'Kotzebue',               'lat':66.87, 'lon':-162.63, 'wmo':'70133'},
     {'id':'OME',  'name':'Nome',                   'lat':64.50, 'lon':-165.43, 'wmo':'70200'},
     {'id':'BET',  'name':'Bethel',                 'lat':60.78, 'lon':-161.80, 'wmo':'70219'},
     {'id':'MCG',  'name':'McGrath',                'lat':62.97, 'lon':-155.62, 'wmo':'70231'},
@@ -1862,7 +1862,7 @@ UPPER_AIR_STATIONS = [
     {'id':'ANN',  'name':'Annette Island',         'lat':55.03, 'lon':-131.57, 'wmo':'70398'},
     {'id':'YAK',  'name':'Yakutat',                'lat':59.52, 'lon':-139.67, 'wmo':'70361'},
     # ── CONTIGUOUS US ──
-    {'id':'OAK',  'name':'Salem',                  'lat':44.91, 'lon':-123.01, 'wmo':'72694'},
+    {'id':'SLE',  'name':'Salem',                  'lat':44.91, 'lon':-123.01, 'wmo':'72694'},
     {'id':'UIL',  'name':'Quillayute WA',          'lat':47.95, 'lon':-124.55, 'wmo':'72797'},
     {'id':'SLC',  'name':'Salt Lake City UT',      'lat':40.77, 'lon':-111.97, 'wmo':'72572'},
     {'id':'BOI',  'name':'Boise ID',               'lat':43.57, 'lon':-116.22, 'wmo':'72681'},
@@ -1886,6 +1886,7 @@ UPPER_AIR_STATIONS = [
     {'id':'OUN',  'name':'Norman OK',              'lat':35.18, 'lon':-97.43,  'wmo':'72357'},
  #   {'id':'KEPZ', 'name':'Santa Teresa NM',        'lat':31.87, 'lon':-106.70, 'wmo':'72270'},
     {'id':'KMAF', 'name':'Midland TX',             'lat':31.95, 'lon':-102.18, 'wmo':'72265'},
+    {'id':'LIN', 'name':'Lincoln',             'lat':40.15, 'lon':-89.34,  'wmo':'74560'},
     {'id':'FWD', 'name':'Fort Worth TX',             'lat':32.84, 'lon':-97.30, 'wmo':'72249'},
     {'id':'KDRT', 'name':'Del Rio TX',             'lat':29.37, 'lon':-100.92, 'wmo':'72261'},
     {'id':'KCRP', 'name':'Corpus Christi TX',      'lat':27.77, 'lon':-97.50,  'wmo':'72251'},
@@ -1903,6 +1904,64 @@ UPPER_AIR_STATIONS = [
     {'id':'KLIX', 'name':'New Orleans LA',         'lat':30.33, 'lon':-89.82,  'wmo':'72233'},
     {'id':'PHTO', 'name':'Hilo',                   'lat':19.72, 'lon':-155.05, 'wmo':'91285'},
     {'id':'PHLI', 'name':'Lihue',                  'lat':21.99, 'lon':-159.34, 'wmo':'91165'},
+    #  {'id':'VOD', 'name':'Callaghan Valley', 'lat':50.1442, 'lon':-123.1092, 'wmo':None},
+    # {'id':'VOE', 'name':'Cypress Bowl North', 'lat':49.4106, 'lon':-123.196, 'wmo':None},
+    # {'id':'WAS', 'name':'Pam Rocks', 'lat':49.4879, 'lon':-123.299, 'wmo':None},
+    # {'id':'BAR', 'name':'Tabernacle', 'lat':51.7513, 'lon':-117.761, 'wmo':None},
+    # {'id':'BFL', 'name':'Fred Laing Ridge', 'lat':52.0403, 'lon':-118.571, 'wmo':None},
+    # {'id':'BSS', 'name':'Kootenay Pass', 'lat':49.0581, 'lon':-117.04, 'wmo':None},
+    # {'id':'CFDC', 'name':'Nordic', 'lat':51.5072, 'lon':-117.422, 'wmo':None},
+    # {'id':'CFTS', 'name':'Tsar Creek', 'lat':51.9972, 'lon':-118.103, 'wmo':None},
+    # {'id':'CHCA', 'name':'Caribou Ridge', 'lat':51.5183, 'lon':-118.462, 'wmo':None},
+    # {'id':'WNP', 'name':'Nakusp', 'lat':50.2664, 'lon':-117.813, 'wmo':None},
+    # {'id':'CHMD', 'name':'Cassiar Mountains', 'lat':59.8167, 'lon':-130.0167, 'wmo':None},
+    # {'id':'CHHL', 'name':'Helmer Lake', 'lat':50.3217, 'lon':-120.632, 'wmo':None},
+    # {'id':'CHLA', 'name':'Larson Hill', 'lat':49.8311, 'lon':-120.935, 'wmo':None},
+    # {'id':'CHPK', 'name':'Pennask Summit', 'lat':49.9068, 'lon':-120.0134, 'wmo':None},
+    # {'id':'CYRA', 'name':'Gameti', 'lat':64.117, 'lon':-117.317, 'wmo':None},
+    # {'id':'CXLU', 'name':'Lutselk', 'lat':62.417, 'lon':-110.683, 'wmo':None},
+    # {'id':'CWRM', 'name':'Rocky Mountain House', 'lat':52.417, 'lon':-114.917, 'wmo':None},
+    # {'id':'CZWN', 'name':'Wainwright Airfield', 'lat':52.833, 'lon':-111.1, 'wmo':None},
+    # {'id':'CWBO', 'name':'Brooks', 'lat':50.55, 'lon':-111.85, 'wmo':None},
+    # {'id':'CWJW', 'name':'Jasper Warden', 'lat':52.933, 'lon':-118.033, 'wmo':None},
+    # {'id':'CYMM', 'name':'Fort McMurray', 'lat':56.65, 'lon':-111.217, 'wmo':None},
+    # {'id':'CWLB', 'name':'Lac La Biche', 'lat':54.767, 'lon':-112.017, 'wmo':None},
+    # {'id':'CYZU', 'name':'Whitecourt Arpt', 'lat':54.15, 'lon':-115.783, 'wmo':None},
+    # {'id':'CYQU', 'name':'Grande Prairie Arpt', 'lat':55.183, 'lon':-118.883, 'wmo':None},
+    # {'id':'CYOJ', 'name':'High Level Arpt', 'lat':58.617, 'lon':-117.167, 'wmo':None},
+    # {'id':'CWRD', 'name':'Red Earth', 'lat':56.55, 'lon':-115.283, 'wmo':None},
+    # {'id':'CYEN', 'name':'Estevan Arpt', 'lat':49.217, 'lon':-102.967, 'wmo':None},
+    # {'id':'CYQR', 'name':'Regina Arpt', 'lat':50.433, 'lon':-104.667, 'wmo':None},
+    # {'id':'CWVP', 'name':'Cypress Hills Park', 'lat':49.633, 'lon':-109.517, 'wmo':None},
+    # {'id':'CYXE', 'name':'Saskatoon Intl Arpt', 'lat':52.167, 'lon':-106.7, 'wmo':None},
+    # {'id':'CYVT', 'name':'Buffalo Narrow Arpt', 'lat':55.833, 'lon':-108.433, 'wmo':None},
+    # {'id':'CYKJ', 'name':'Key Lake', 'lat':55.25, 'lon':-105.617, 'wmo':None},
+    # {'id':'CXOX', 'name':'La Ronge', 'lat':55.15, 'lon':-105.267, 'wmo':None},
+    # {'id':'CYLJ', 'name':'Meadow Lake Arpt', 'lat':54.133, 'lon':-108.517, 'wmo':None},
+    # {'id':'CYSF', 'name':'Stony Rapids Arpt', 'lat':59.25, 'lon':-105.833, 'wmo':None},
+    # {'id':'CWBU', 'name':'Nipawin', 'lat':53.333, 'lon':-104.0, 'wmo':None},
+    # {'id':'CWJD', 'name':'Grand Rapids', 'lat':53.183, 'lon':-99.267, 'wmo':None},
+    # {'id':'CWEQ', 'name':'Swan River', 'lat':52.117, 'lon':-101.233, 'wmo':None},
+    # {'id':'CYGX', 'name':'Guillam Arpt', 'lat':56.35, 'lon':-94.717, 'wmo':None},
+    # {'id':'CYIV', 'name':'Island Lake Arpt', 'lat':53.85, 'lon':-94.65, 'wmo':None},
+    # {'id':'CPLE', 'name':'Lynn Lake', 'lat':56.85, 'lon':-101.067, 'wmo':None},
+    # {'id':'CYBQ', 'name':'Tadoule Lake', 'lat':58.7, 'lon':-98.517, 'wmo':None},
+    # {'id':'CYTH', 'name':'Thompson Arpt', 'lat':55.8, 'lon':-97.867, 'wmo':None},
+    # {'id':'CYBX', 'name':'Blanc Sablon Arpt', 'lat':51.45, 'lon':-57.183, 'wmo':None},
+    # {'id':'CYNA', 'name':'Natashquan Arpt', 'lat':50.183, 'lon':-61.783, 'wmo':None},
+    # {'id':'CYGP', 'name':'Gaspe Arpt', 'lat':48.783, 'lon':-64.483, 'wmo':None},
+    # {'id':'CGKL', 'name':'Schefferville', 'lat':54.8, 'lon':-66.8, 'wmo':None},
+    # {'id':'CADN', 'name':'Doaktown', 'lat':46.583, 'lon':-66.017, 'wmo':None},
+    # {'id':'CWKG', 'name':'Kijimkujik', 'lat':44.4, 'lon':-65.2, 'wmo':None},
+    # {'id':'CYQY', 'name':'Sydney Arpt', 'lat':46.167, 'lon':-60.05, 'wmo':None},
+    # {'id':'CAHR', 'name':'Harrington', 'lat':46.35, 'lon':-63.167, 'wmo':None},
+    # {'id':'CWDI', 'name':'Badger', 'lat':48.967, 'lon':-56.067, 'wmo':None},
+    # {'id':'CXWT', 'name':'Winterland', 'lat':47.133, 'lon':-55.333, 'wmo':None},
+    # {'id':'CYDP', 'name':'Nain Arpt', 'lat':56.55, 'lon':-61.683, 'wmo':None},
+    # {'id':'CYWK', 'name':'Wabush Lake Arpt', 'lat':52.933, 'lon':-66.867, 'wmo':None},
+    # {'id':'CWVK', 'name':'Vernon UA', 'lat':50.284, 'lon':-119.267, 'wmo':None},
+    # {'id':'CAWE', 'name':'Shearwater', 'lat':44.63, 'lon':-63.5, 'wmo':None},
+
 
 ]
 
@@ -7293,11 +7352,11 @@ save_btn_html = (
 '  var prevVis = hideEls.map(function(el){ return el.style.visibility; });\n'
 '  hideEls.forEach(function(el){ el.style.visibility = "hidden"; });\n'
 
-# resize map for clean capture
-'  var CENTER   = [55, -118];\n'
+# resize map for clean capture, was , var CENTER   = [55, -118]
+'  var CENTER   = [55, -122];\n'
 '  var ZOOM     = 5;\n'
-'  var TARGET_W = 1400;\n'
-'  var TARGET_H = 1141;\n'
+'  var TARGET_W = 1800;\n'
+'  var TARGET_H = 1467;\n'
 '  var origW = mapEl.style.width;\n'
 '  var origH = mapEl.style.height;\n'
 '  function restore() {\n'
