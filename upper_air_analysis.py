@@ -2473,12 +2473,12 @@ def get_sounding_dt(hour):
 
 
 # ── Step 2: fetch raw HTML for one station/hour ────────────────────────────
-def fetch_raw(stn, hour):
+def fetch_raw(stn, hour, timeout=None):
     dt     = get_sounding_dt(hour)
     dt_str = f'{dt.strftime("%Y-%m-%d")} {hour}:00:00'
     url    = f'{WYOMING_BASE}?datetime={quote(dt_str)}&id={stn["wmo"]}&src=BUFR&type=TEXT:LIST'
     try:
-        r = requests.get(url, timeout=UA_TIMEOUT)
+        r = requests.get(url, timeout=timeout or UA_TIMEOUT)
         if not r.ok or len(r.text) < 300:
             return None
         txt = r.text
