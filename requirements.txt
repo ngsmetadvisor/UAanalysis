@@ -6,4 +6,4 @@ pykrige
 folium
 shapely
 branca
-pandas
+ipython
