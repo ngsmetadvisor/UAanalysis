@@ -585,20 +585,9 @@ for _i, (_svg_str, _sw, _sh, _rec) in enumerate(_svg_parts_list):
 _out.append('</svg>')
 
 
-
+# @title
 # ── Cell 3 . Load station list from orangecore.net ────────────
 import csv, io, math as _math
-
-
-
-
-# ====================================================
-#=====================================================
-import threading, time
-
-##########################################################
-
-
 
 def load_stations(url, coverage='standard'):
     r = requests.get(url, timeout=15)
@@ -645,44 +634,41 @@ print(f'  Lat range: {min(lats):.1f}°N - {max(lats):.1f}°N')
 print(f'  Lon range: {min(lons):.1f}°E - {max(lons):.1f}°E')
 
 
-# ── Register EC model virtual stations into STATIONS ─────────────────────
+# ── NEW: Register EC model virtual stations into STATIONS ─────────────────────
 # Injected here so parse_metar_line() and ALL downstream cells see them
 # as ordinary stations, indistinguishable from real ones except source='ecmodel'.
 
-EC_LONGITUDE = list(range(-114, -140, 10))
-EC_LATITUDES = list(range(50, 40, -10))  # [49, 39, 29, 19, 9] south to equator
+EC_LONGITUDE  = -139.7                    # 139.7°W — PAYA (Yakutat) meridian
+EC_LATITUDES  = list(range(49, 0, -10))  # [49, 39, 29, 19, 9] south to equator
 OPENMETEO_URL = 'https://api.open-meteo.com/v1/forecast'
 
 def ec_icao(lat, lon):
-    return f"ECML{abs(lat):02d}{abs(lon):03d}"
+    """Build a compact ICAO-slot-length ID: e.g. ECMLN61W150"""
+    return (f"ECM{'N' if lat>=0 else 'S'}{abs(lat):02d}"
+            f"{'E' if lon>=0 else 'W'}{abs(int(lon)):03d}")
 
 for _lat in EC_LATITUDES:
-    for _lon in EC_LONGITUDE:
-        _id = ec_icao(_lat, _lon)
-
-        STATIONS[_id] = {
-            'icao':   _id,
-            'name':   f'EC Model {_lat:+d}N {abs(_lon):.0f}W',
-            'lat':    float(_lat),
-            'lon':    float(_lon),
-            'tier':   0,
-            'source': 'ecmodel',
-        }
+    _id = ec_icao(_lat, EC_LONGITUDE)
+    STATIONS[_id] = {
+        'icao':   _id,
+        'name':   f'EC Model {_lat:+d}N {abs(EC_LONGITUDE):.0f}W',
+        'lat':    float(_lat),
+        'lon':    float(EC_LONGITUDE),
+        'tier':   0,
+        'source': 'ecmodel',
+    }
 
 print(f'  + {len(EC_LATITUDES)} EC model virtual stations registered')
 print(f'  Total STATIONS: {len(STATIONS)}')
 
-# ── Aliases so UA-2b references resolve to the same objects ──────────────
-ec_ua_icao      = ec_icao
-EC_UA_LONGITUDE = EC_LONGITUDE
-EC_UA_LATITUDES = EC_LATITUDES
 
-
+# @title METAR from Aviationweather
 # ── Cell 3b . Fetch & parse EC model data from Open-Meteo ─────────────────────
 # Produces ec_metar_records[] with the IDENTICAL schema as parse_metar_line().
 # Appended to metar_records[] at the END of Cell 5 — before Cell 5b runs.
 
 from datetime import datetime, timezone as _tz
+from IPython.display import display, HTML
 
 
 
@@ -719,7 +705,7 @@ def _ec_tfmt(c):
     return f'M{abs(i):02d}' if i < 0 else f'{i:02d}'
 
 # ── fetch one grid point ──────────────────────────────────────────────────────
-def _fetch_ec(lat, lon, past_days=0, forecast_days=3):
+def _fetch_ec(lat, lon, past_days=2, forecast_days=1):
     r = requests.get(OPENMETEO_URL, params={
         'latitude': lat, 'longitude': lon,
         'hourly': ('temperature_2m,precipitation,pressure_msl,'
@@ -805,43 +791,48 @@ def _parse_ec(lat, lon, data):
 ec_metar_records = []
 ec_fetch_errors  = []
 
-total_points = len(EC_LATITUDES) * len(EC_LONGITUDE)
-
-print(f"Fetching {total_points} EC model grid points ({len(EC_LATITUDES)} lat × {len(EC_LONGITUDE)} lon)...")
-
+print(f'Fetching {len(EC_LATITUDES)} EC model stations along {abs(EC_LONGITUDE):.0f}°W transect...')
 for _lat in EC_LATITUDES:
-    for _lon in EC_LONGITUDE:
+    _id = ec_icao(_lat, EC_LONGITUDE)
+    print(f'  {_id}  ({_lat:+03d}°N) … ', end='')
+    try:
+        _recs = _parse_ec(_lat, EC_LONGITUDE, _fetch_ec(_lat, EC_LONGITUDE))
+        ec_metar_records.extend(_recs)
+        print(f'✓  {len(_recs)} hourly obs')
+    except Exception as _e:
+        print(f'✗  {_e}')
+        ec_fetch_errors.append(_id)
 
-        _id = ec_icao(_lat, _lon)
-        print(f'  {_id}  ({_lat:+03d}°, {_lon}°) … ', end='')
-
-        try:
-            data = _fetch_ec(_lat, _lon)
-            _recs = _parse_ec(_lat, _lon, data)
-
-            ec_metar_records.extend(_recs)
-            print(f'✓ {len(_recs)} hourly obs')
-
-        except Exception as _e:
-            print(f'✗ {_e}')
-            ec_fetch_errors.append(_id)
+print(f'\n✓ EC model records ready: {len(ec_metar_records)}')
+if ec_fetch_errors:
+    print(f'  ✗ Failed: {ec_fetch_errors}')
 
 
+
+
+
+
+
+# @title
 # ── Cell 4 . Fetch live METARs from aviationweather.gov ───────
 import concurrent.futures, time
+from IPython.display import display, HTML
 
-EXPECTED_HOURS = []
+EXPECTED_HOURS = [0, 6, 12, 18]
 
 def fetch_chunk(codes, hours=12, retries=3, backoff=2):
     for attempt in range(retries):
         try:
             params = {'ids': ','.join(codes), 'format': 'raw',
-                      'hours': hours, 'mostRecent': 'false'}
+                      'hours': hours}
             r = requests.get(METAR_API, params=params, timeout=30)
+            print(f'DEBUG fetch: status={r.status_code} len={len(r.text)} url={r.url}')
+            print(f'DEBUG body[:300]: {r.text[:300]!r}')
             if r.ok and r.text.strip():
                 return r.text, []
             time.sleep(backoff * (attempt + 1))
-        except Exception:
+        except Exception as e:
+            print(f'DEBUG exception: {e}')
             time.sleep(backoff * (attempt + 1))
     return '', codes
 
@@ -853,6 +844,18 @@ def fetch_all_metars(station_codes, chunk_size=25, max_workers=6, hours=12):
         f'Chunk {i+1}: {", ".join(c)}</div>'
         for i, c in enumerate(chunks)
     )
+    display(HTML(f'''
+    <details style="margin:6px 0;font-family:monospace;font-size:12px;">
+      <summary style="cursor:pointer;color:#1a4a8a;font-weight:bold;">
+        Fetching {len(station_codes)} stations in {len(chunks)} chunks
+        ({max_workers} workers, up to 3 retries) — click to expand
+      </summary>
+      <div style="margin-top:6px;padding:8px;background:#f8f8f8;
+                  border:1px solid #ddd;border-radius:4px;max-height:200px;overflow-y:auto;">
+        {chunk_lines}
+      </div>
+    </details>
+    '''))
 
     raw_parts = []; failed_codes = []; done = 0
     with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as ex:
@@ -917,11 +920,22 @@ if no_data:
                     + "&nbsp;&nbsp;" + "&nbsp;&nbsp;".join(no_data))
 
 if warnings:
-    pass
+    display(HTML(f'''
+    <div style="background:#ffb3c6;border:4px solid #cc0000;border-radius:10px;
+                padding:28px 32px;margin:16px 0;">
+      <div style="color:#cc0000;font-size:32px;font-family:monospace;margin-bottom:16px;">⚠ METAR FETCH WARNING</div>
+      {"".join(f'<div style="color:#990000;font-size:18px;font-family:monospace;margin-bottom:12px;line-height:1.6;">{w}</div>' for w in warnings)}
+    </div>'''))
 else:
-    pass
+    display(HTML('''
+    <div style="background:#b6f5c8;border:4px solid #1a7a3a;border-radius:10px;
+                padding:28px 32px;margin:16px 0;">
+      <div style="color:#145c2c;font-size:32px;font-family:monospace;margin-bottom:10px;">✔ ALL STATIONS FETCHED SUCCESSFULLY</div>
+      <div style="color:#1a7a3a;font-size:20px;font-family:monospace;">All stations returned data — no warnings.</div>
+    </div>'''))
 
 
+# @title
 # ── Cell 5 . Parse METAR fields ───────────────────────────────
 
 def parse_metar_line(line, stations):
@@ -1121,6 +1135,30 @@ if missing:
         f'<td style="padding:3px 14px;color:#7a5000;font-family:monospace;">{", ".join(gaps)}</td></tr>'
         for icao, gaps in sorted(missing.items())
     )
+    display(HTML(f'''
+    <div style="background:#fff3b0;border:4px solid #e6a800;border-radius:10px;padding:24px 28px;margin:16px 0;">
+      <div style="color:#b37700;font-size:28px;font-family:monospace;margin-bottom:6px;">⚠ MISSING TIMESTEPS DETECTED</div>
+      <div style="color:#7a5000;font-size:16px;font-family:monospace;margin-bottom:14px;">
+        {len(missing)} stations affected &nbsp;|&nbsp; {total_missing} total missing timesteps
+        &nbsp;|&nbsp; {len(all_timestamps)} timesteps expected per station
+      </div>
+      <button onclick="var t=document.getElementById('missing-table');var b=document.getElementById('missing-btn');
+          if(t.style.display==='none'){{t.style.display='block';b.textContent='▲ Collapse';}}
+          else{{t.style.display='none';b.textContent='▼ Show affected stations';}}"
+        id="missing-btn" style="font-family:monospace;font-size:13px;padding:4px 14px;
+        background:#ffe066;border:1px solid #e6a800;border-radius:4px;color:#5a3a00;cursor:pointer;margin-bottom:10px;">
+        ▼ Show affected stations
+      </button>
+      <div id="missing-table" style="display:none;">
+        <table style="border-collapse:collapse;width:100%;">
+          <tr style="background:#ffe066;">
+            <th style="padding:4px 14px;text-align:left;color:#5a3a00;font-family:monospace;">ICAO</th>
+            <th style="padding:4px 14px;text-align:center;color:#5a3a00;font-family:monospace;"># Missing</th>
+            <th style="padding:4px 14px;text-align:left;color:#5a3a00;font-family:monospace;">Missing Timesteps</th>
+          </tr>{rows}
+        </table>
+      </div>
+    </div>'''))
     _all_stations  = sorted(set(d['icao'] for d in metar_records))
     _good_stations = sorted(set(d['icao'] for d in metar_records) - set(missing.keys()))
     # Build latest record per station for tooltip
@@ -1197,15 +1235,33 @@ if missing:
         )
 
     _good_rows = ''.join(_station_badge(icao) for icao in _all_stations)
+    display(HTML(f'''
+    <div style="background:#b6f5c8;border:4px solid #1a7a3a;border-radius:10px;padding:24px 28px;margin:16px 0;overflow:visible;">
+      <div style="color:#145c2c;font-size:24px;font-family:monospace;margin-bottom:8px;">✔ {len(_all_stations)} STATIONS WITH DATA &nbsp;|&nbsp; {len(_good_stations)} COMPLETE</div>
+      <div style="color:#1a7a3a;font-size:13px;font-family:monospace;margin-bottom:10px;">
+        {len(all_timestamps)} timesteps &nbsp;|&nbsp; {len(metar_records)} total records &nbsp;|&nbsp;
+        SLP: {slp_count} &nbsp; Wind: {wind_count} &nbsp; Temp: {temp_count}
+      </div>
+      <div style="line-height:2.2;overflow:visible;">{_good_rows}</div>
+    </div>'''))
 else:
-    pass
+    display(HTML(f'''
+    <div style="background:#b6f5c8;border:4px solid #1a7a3a;border-radius:10px;padding:24px 28px;margin:16px 0;">
+      <div style="color:#145c2c;font-size:28px;font-family:monospace;margin-bottom:8px;">✔ ALL STATIONS HAVE COMPLETE TIMESTEPS</div>
+      <div style="color:#1a7a3a;font-size:18px;font-family:monospace;">
+        {len(all_timestamps)} timesteps &nbsp;|&nbsp; {len(metar_records)} total records &nbsp;|&nbsp;
+        SLP: {slp_count} &nbsp; Wind: {wind_count} &nbsp; Temp: {temp_count}
+      </div>
+    </div>'''))
 
 
 print(f'  SLP: {slp_count}  Wind: {wind_count}  Temp: {temp_count}')
 
 # ── Summary table ─────────────────────────────────────────────────────────────
 import pandas as pd
+from IPython.display import display, HTML
 
+print(f'DEBUG: metar_records has {len(metar_records)} entries before building _df')
 _df = pd.DataFrame([{
     'ICAO':       d['icao'],
     'Src':        d.get('source', 'metar'),
@@ -1234,6 +1290,8 @@ _df = pd.DataFrame([{
 } for d in metar_records])
 
 def _style_df(df, caption):
+    if df.empty:
+        return f'<div style="font-family:monospace;color:#cc0000;padding:8px;">⚠ {caption} — NO RECORDS TO DISPLAY (metar_records is empty)</div>'
     grad_cols = [c for c in ['Temp(C)','Dew(C)'] if c in df.columns]
     slp_cols  = [c for c in ['SLP(hPa)']          if c in df.columns]
     okta_cols = [c for c in ['Oktas']              if c in df.columns]
@@ -1255,6 +1313,414 @@ _ROWS = 5
 _uid  = 'metartbl'
 _short_html = _style_df(_df.head(_ROWS), f'METARs + EC Model — showing {_ROWS} of {len(_df)} records')
 _full_html  = _style_df(_df,             f'METARs + EC Model — {len(_df)} records total')
+
+display(HTML(f'''
+<div id="{_uid}-short">
+  {_short_html}
+  <button onclick="document.getElementById('{_uid}-short').style.display='none';
+      document.getElementById('{_uid}-full').style.display='block';"
+    style="margin-top:6px;padding:4px 14px;font-family:monospace;font-size:11px;
+    cursor:pointer;border:1px solid #aaa;border-radius:4px;background:#e8f0fe;color:#1a3a6a;">
+    ▼ Show all {len(_df)} rows
+  </button>
+</div>
+<div id="{_uid}-full" style="display:none">
+  {_full_html}
+  <button onclick="document.getElementById('{_uid}-full').style.display='none';
+      document.getElementById('{_uid}-short').style.display='block';"
+    style="margin-top:6px;padding:4px 14px;font-family:monospace;font-size:11px;
+    cursor:pointer;border:1px solid #aaa;border-radius:4px;background:#e8f0fe;color:#1a3a6a;">
+    ▲ Collapse
+  </button>
+</div>'''))
+
+
+# @title
+# ── Cell 5b . Compute pressure tendency from 3-hr SLP history ─
+# UNCHANGED — now naturally covers both real METAR and EC model records.
+
+from collections import defaultdict
+
+def classify_tendency(slp_now, slp_3h):
+    if slp_now is None or slp_3h is None:
+        return None, None
+    diff   = slp_now - slp_3h
+    change = int(round(diff * 10))
+    if abs(diff) < 1.0: return 'steady', change
+    return ('rising', change) if diff > 0 else ('falling', change)
+
+def classify_tendency_detailed(slp_series):
+    if len(slp_series) < 2: return None, None
+    slp_vals = [s for _, s in slp_series if s is not None]
+    if len(slp_vals) < 2: return None, None
+    first = slp_vals[0]; last = slp_vals[-1]; mid = slp_vals[len(slp_vals)//2]
+    diff_total = last - first; diff_first = mid - first; diff_last = last - mid
+    STEADY = 1.0
+    change = int(round(diff_total * 10))
+    def sign(x): return 1 if x > STEADY else (-1 if x < -STEADY else 0)
+    s1, s2 = sign(diff_first), sign(diff_last)
+    if   s1 ==  1 and s2 ==  1: return 'rising',         change
+    elif s1 == -1 and s2 == -1: return 'falling',        change
+    elif s1 ==  0 and s2 ==  0: return 'steady',         change
+    elif s1 ==  1 and s2 == -1: return 'rising_falling', change
+    elif s1 == -1 and s2 ==  1: return 'falling_rising', change
+    elif s1 ==  1 and s2 ==  0: return 'rising_steady',  change
+    elif s1 == -1 and s2 ==  0: return 'falling_steady', change
+    elif s1 ==  0 and s2 ==  1: return 'rising',         change
+    elif s1 ==  0 and s2 == -1: return 'falling',        change
+    else:                        return 'steady',         change
+
+station_slp_series = defaultdict(list)
+for d in metar_records:
+    if d['slp'] is not None:
+        station_slp_series[d['icao']].append((d['timestamp'], d['slp']))
+for icao in station_slp_series:
+    station_slp_series[icao].sort(key=lambda x: x[0])
+
+tendency_assigned = 0
+for d in metar_records:
+    series = [(ts, slp) for ts, slp in station_slp_series[d['icao']]
+              if ts <= d['timestamp']]
+    if len(series) >= 2:
+        tend, change = classify_tendency_detailed(series)
+        d['tendency']        = tend
+        d['pressure_change'] = change
+        tendency_assigned   += 1
+
+print(f'✓ Tendency computed for {tendency_assigned} / {len(metar_records)} records')
+no_tend = sum(1 for d in metar_records if d['tendency'] is None)
+print(f'  No tendency (insufficient history): {no_tend}')
+
+from collections import Counter
+tend_counts = Counter(d['tendency'] for d in metar_records if d['tendency'])
+for k, v in sorted(tend_counts.items(), key=lambda x: -x[1]):
+    print(f'  {k:<20} {v}')
+
+src_counts = Counter(d.get('source','metar') for d in metar_records)
+print(f'\n  Source breakdown in metar_records:')
+for src, cnt in src_counts.items():
+    print(f'    {src:<10} {cnt} records')
+
+# ── Interactive station badge grid ────────────────────────────
+_all_stations_5b  = sorted(set(d['icao'] for d in metar_records))
+_no_tend_stations = set(d['icao'] for d in metar_records if d['tendency'] is None)
+_good_count_5b    = len(_all_stations_5b) - len(_no_tend_stations)
+
+_latest_5b = {}
+for d in metar_records:
+    if d['icao'] not in _latest_5b or d['timestamp'] > _latest_5b[d['icao']]['timestamp']:
+        _latest_5b[d['icao']] = d
+
+def _station_badge_5b(icao):
+    d         = _latest_5b.get(icao, {})
+    has_gap   = icao in _no_tend_stations
+    bg        = '#fff3b0' if has_gap else '#e6faf0'
+    bdr       = '#e6a800' if has_gap else '#1a7a3a'
+    clr       = '#7a5000' if has_gap else '#145c2c'
+    ts        = d.get('timestamp', '—')
+    tend      = d.get('tendency', '—') or '—'
+    src       = d.get('source', '—')
+    gap_str   = '⚠ no tendency (insufficient history)' if has_gap else '✔ tendency computed'
+    detail_id = f'tend-detail-{icao}'
+    popup_bdr = '#a85c00' if has_gap else '#1a7a3a'
+    popup_gap_clr = '#a85c00' if has_gap else '#1a7a3a'
+    all_lines = sorted([r for r in metar_records if r['icao'] == icao],
+                       key=lambda r: r['timestamp'])
+    metar_rows = ''.join(
+        f'<tr style="border-bottom:1px solid #eee;">'
+        f'<td style="padding:2px 8px;color:#555;white-space:nowrap;">{r["timestamp"]}</td>'
+        f'<td style="padding:2px 8px;font-family:monospace;font-size:10px;color:#1a2030;white-space:nowrap;">'
+        f'SLP:{r.get("slp","—")} &nbsp; tend:{r.get("tendency","—")}</td>'
+        f'</tr>'
+        for r in all_lines
+    )
+    # Build SLP chart data for this station
+    slp_points = [(r["timestamp"], r["slp"]) for r in all_lines if r.get("slp") is not None]
+    chart_labels = [p[0] for p in slp_points]
+    chart_values = [p[1] for p in slp_points]
+    chart_id = f'slp-chart-{icao}'
+    chart_labels_js = str(chart_labels).replace("'", '"')
+    chart_values_js = str(chart_values)
+    return (
+        f'<span style="display:inline-block;position:relative;margin:2px;">'
+        f'<span onclick="'
+        f'var p=document.getElementById(\'{detail_id}\');'
+        f'document.querySelectorAll(\'.tend-detail-popup\').forEach(function(x){{if(x.id!==\'{detail_id}\')x.style.display=\'none\';}});'
+        f'p.style.display=p.style.display===\'none\'?\'block\':\'none\';" '
+        f'style="font-family:monospace;font-size:11px;color:{clr};cursor:pointer;'
+        f'background:{bg};border:1px solid {bdr};border-radius:3px;'
+        f'padding:1px 6px;display:inline-block;">{icao}</span>'
+        f'<div id="{detail_id}" class="tend-detail-popup" '
+        f'style="display:none;position:absolute;top:20px;left:0;z-index:9999;'
+        f'background:#fff;border:2px solid {popup_bdr};border-radius:8px;padding:12px 16px;'
+        f'font-family:monospace;font-size:12px;color:#1a2030;'
+        f'box-shadow:0 4px 16px rgba(0,0,0,0.25);min-width:320px;max-width:600px;">'
+        f'<b style="font-size:13px;">{icao}</b> '
+        f'<span style="color:#888;font-size:10px;">{d.get("name","")}</span> '
+        f'<span style="color:#888;font-size:10px;">· {src} · {len(all_lines)} obs</span>'
+        f'<hr style="margin:4px 0;border:none;border-top:1px solid #ccc;">'
+        f'<span style="color:{popup_gap_clr};font-size:10px;">{gap_str}</span>'
+        f' &nbsp; <span style="font-size:10px;">latest: {ts} &nbsp; tend: {tend}</span>'
+        f'<hr style="margin:4px 0;border:none;border-top:1px solid #eee;">'
+        f'<canvas id="{chart_id}" width="460" height="160" '
+        f'style="width:100%;max-width:460px;height:160px;margin:8px 0;display:block;"></canvas>'
+        f'<script>'
+        f'(function(){{'
+        f'  var labels = {chart_labels_js};'
+        f'  var values = {chart_values_js};'
+        f'  var ctx = document.getElementById("{chart_id}");'
+        f'  if (!ctx) return;'
+        f'  var mn = Math.min.apply(null,values)-1, mx = Math.max.apply(null,values)+1;'
+        f'  new Chart(ctx, {{'
+        f'    type:"line",'
+        f'    data:{{'
+        f'      labels:labels,'
+        f'      datasets:[{{'
+        f'        label:"SLP (hPa)",'
+        f'        data:values,'
+        f'        borderColor:"#1a4a8a",'
+        f'        backgroundColor:"rgba(26,74,138,0.08)",'
+        f'        pointBackgroundColor:"#1a4a8a",'
+        f'        pointRadius:4,'
+        f'        borderWidth:2,'
+        f'        tension:0.3,'
+        f'        fill:true'
+        f'      }}]'
+        f'    }},'
+        f'    options:{{'
+        f'      responsive:false,'
+        f'      plugins:{{legend:{{display:false}},'
+        f'        tooltip:{{callbacks:{{label:function(c){{return c.parsed.y.toFixed(1)+" hPa";}}}}}}}},'
+        f'      scales:{{'
+        f'        x:{{ticks:{{font:{{size:9}},maxRotation:45}}}},'
+        f'        y:{{min:mn,max:mx,ticks:{{font:{{size:9}}}},title:{{display:true,text:"hPa",font:{{size:9}}}}}}'
+        f'      }}'
+        f'    }}'
+        f'  }});'
+        f'}})()'
+        f'</script>'
+        f'<div style="max-height:160px;overflow-y:auto;">'
+        f'<table style="border-collapse:collapse;width:100%;font-size:10px;">'
+        f'<tr style="background:#f0f4f8;">'
+        f'<th style="padding:2px 8px;text-align:left;">Time</th>'
+        f'<th style="padding:2px 8px;text-align:left;">SLP / Tendency</th></tr>'
+        f'{metar_rows}</table></div>'
+        f'<button onclick="document.getElementById(\'{detail_id}\').style.display=\'none\';event.stopPropagation();" '
+        f'style="margin-top:8px;font-size:10px;padding:2px 10px;cursor:pointer;'
+        f'border:1px solid #aaa;border-radius:3px;background:#f0f0f0;">✕ close</button>'
+        f'</div></span>'
+    )
+
+_badge_rows_5b = ''.join(_station_badge_5b(icao) for icao in _all_stations_5b)
+_all_ts_5b     = sorted(set(d['timestamp'] for d in metar_records))
+_slp_5b        = sum(1 for d in metar_records if d['slp'])
+_wind_5b       = sum(1 for d in metar_records if d['wind_dir'] is not None)
+_temp_5b       = sum(1 for d in metar_records if d['temp'] is not None)
+
+display(HTML(f'''
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<div style="background:#b6f5c8;border:4px solid #1a7a3a;border-radius:10px;padding:24px 28px;margin:16px 0;overflow:visible;">
+  <div style="color:#145c2c;font-size:24px;font-family:monospace;margin-bottom:8px;">
+    ✔ {len(_all_stations_5b)} STATIONS WITH DATA &nbsp;|&nbsp; {_good_count_5b} COMPLETE TENDENCY
+  </div>
+  <div style="color:#1a7a3a;font-size:13px;font-family:monospace;margin-bottom:10px;">
+    {len(_all_ts_5b)} timesteps &nbsp;|&nbsp; {len(metar_records)} total records &nbsp;|&nbsp;
+    SLP: {_slp_5b} &nbsp; Wind: {_wind_5b} &nbsp; Temp: {_temp_5b}
+  </div>
+  <div style="line-height:2.2;overflow:visible;">{_badge_rows_5b}</div>
+</div>'''))
+
+# @title
+# ── Cell 5c . Fetch Fort Vermillion (71024) from ogimet ───────────────────────
+import requests, re
+from datetime import datetime, timezone as _tz
+
+OGIMET_SYNOP_URL = 'https://www.ogimet.com/cgi-bin/getsynop'
+FV_WMO   = '71024'
+FV_ICAO  = 'CXFV'   # synthetic key — not a real ICAO, but unique in STATIONS
+FV_LAT   = 58.3822
+FV_LON   = -116.0402 #offset for better viewing. true lon -116.0402
+FV_NAME  = 'Fort Vermillion, Alta'
+
+# Register into STATIONS so downstream cells see it
+STATIONS[FV_ICAO] = {
+    'icao':   FV_ICAO,
+    'name':   FV_NAME,
+    'lat':    FV_LAT,
+    'lon':    FV_LON,
+    'tier':   0,
+    'source': 'synop',
+}
+
+def fetch_ogimet_synop(wmo_id, ndays=2):
+    now = datetime.now(_tz.utc)
+    from datetime import timedelta
+    start = now - timedelta(days=ndays)
+    try:
+        r = requests.get(OGIMET_SYNOP_URL, params={
+            'block': wmo_id,
+            'begin': start.strftime('%Y%m%d%H%M'),
+            'end':   now.strftime('%Y%m%d%H%M'),
+        }, timeout=20)
+        r.raise_for_status()
+        return r.text
+    except (requests.exceptions.RequestException, requests.exceptions.HTTPError) as e:
+        print(f'URL error, by pass this station: {wmo_id}')
+        return None
+
+result = fetch_ogimet_synop(FV_WMO)
+if result is None:
+    print(f'Skipping Fort Vermillion — fetch failed')
+else:
+    print(result[:1000])
+
+
+def parse_synop_fm12(line, icao, st):
+    m = re.match(r'^\d+,(\d{4}),(\d{2}),(\d{2}),(\d{2}),(\d{2}),(.*)', line)
+    if not m:
+        return None
+
+    dd, hh = int(m.group(4)), int(m.group(5))  # day, hour — already correct
+    # wait — CSV cols are: WMO,YYYY,MM,DD,HH,mm,synop
+    yyyy, mo, dd, hh = m.group(1), m.group(2), int(m.group(4)), int(m.group(4))
+    # re-extract cleanly
+    parts_csv = line.split(',', 6)
+    if len(parts_csv) < 7:
+        return None
+    dd   = int(parts_csv[3])
+    hh   = int(parts_csv[4])
+    synop_str = parts_csv[6].strip()
+
+    timestamp = f'{dd:02d}{hh:02d}00Z'
+    _metar_ts_set = set(d['timestamp'] for d in metar_records)
+    if timestamp not in _metar_ts_set:
+        return None
+
+    groups = synop_str.replace('=', ' ').split()
+    # Find WMO index position and start after it
+    try:
+        data_start = next(i for i, g in enumerate(groups) if g == '71024') + 1
+    except StopIteration:
+        data_start = 3
+    groups = groups[data_start:]
+
+    temp = dew = slp = wind_dir = wind_spd = None
+
+    for g in groups:
+        # Wind group: Nddff or /ddff — N or / then 4 digits
+        if re.match(r'^[\d/]\d{4}$', g) and wind_dir is None:
+            try:
+                dd_ = int(g[1:3]) * 10   # tens of degrees → degrees
+                ff  = int(g[3:5])
+                if 0 < dd_ <= 360:
+                    wind_dir = dd_
+                    wind_spd = ff
+            except: pass
+
+        # 1sTTT — air temperature  (s=0 positive, s=1 negative)
+        elif re.match(r'^1[01]\d{3}$', g):
+            try:
+                sign = -1 if g[1] == '1' else 1
+                temp = sign * int(g[2:]) / 10
+            except: pass
+
+        # 2sTTT — dew point  (s=0 positive, s=1 negative)
+        elif re.match(r'^2[01]\d{3}$', g):
+            try:
+                sign = -1 if g[1] == '1' else 1
+                dew = sign * int(g[2:]) / 10
+            except: pass
+
+        # 3PPPP — station pressure (skip)
+        elif re.match(r'^3\d{4}$', g):
+            pass
+
+        # 4PPPP — sea level pressure
+        elif re.match(r'^4\d{4}$', g):
+            try:
+                raw = int(g[1:])
+                slp = (900 + raw/10) if raw >= 5000 else (1000 + raw/10)
+            except: pass
+
+    rh = None
+    if temp is not None and dew is not None:
+        import math as _m
+        a, b = 17.625, 243.04
+        rh = round(100 * _m.exp((a*dew/(b+dew)) - (a*temp/(b+temp))))
+        rh = max(0, min(100, rh))
+
+    slp_label = f'{int(round(slp*10))%1000:03d}' if slp else ''
+
+    return dict(
+        icao=icao, name=st['name'],
+        lat=st['lat'], lon=st['lon'],
+        source='synop',
+        timestamp=timestamp,
+        wind_dir=wind_dir, wind_spd=wind_spd, wind_gust=0,
+        vis=10.0, temp=temp, dew=dew, rh=rh,
+        slp=slp, slp_label=slp_label,
+        has_sky_obs=False, oktas=0,
+        clouds=[], lowest_sig=None, ceiling=99999,
+        weather='', flt_cat='VFR',
+        tendency=None, pressure_change=None,
+        metar_str=line.strip(),
+    )
+
+# ── Fetch and parse ───────────────────────────────────────────────────────────
+print(f'Fetching Fort Vermillion (WMO {FV_WMO}) from ogimet...')
+fv_records = []
+try:
+    raw = fetch_ogimet_synop(FV_WMO, ndays=2)
+    if raw is None:
+        print(f'Skipping Fort Vermillion — fetch returned no data')
+    else:
+        for line in raw.splitlines():
+            if 'AAXX' not in line:
+                continue
+            rec = parse_synop_fm12(line, FV_ICAO, STATIONS[FV_ICAO])
+            if rec:
+                fv_records.append(rec)
+
+        # Deduplicate by timestamp — keep latest
+        seen = {}
+        for r in fv_records:
+            seen[r['timestamp']] = r
+        fv_records = list(seen.values())
+
+        metar_records.extend(fv_records)
+        print(f'✓ Fort Vermillion: {len(fv_records)} obs added → timestamps: {[r["timestamp"] for r in fv_records]}')
+
+except Exception as e:
+    print(f'✗ Fort Vermillion fetch failed: {e}')
+
+import pandas as pd
+from IPython.display import display, HTML
+
+_fv_df = pd.DataFrame([{
+    'Timestamp':  r['timestamp'],
+    'Temp(C)':    r['temp'],
+    'Dew(C)':     r['dew'],
+    'RH(%)':      r['rh'],
+    'SLP(hPa)':   r['slp'],
+    'Wind Dir':   r['wind_dir'],
+    'Wind Spd':   r['wind_spd'],
+    'Flt Cat':    r['flt_cat'],
+    'Source':     r['source'],
+} for r in fv_records])
+
+if fv_records:
+    _fv_styler = _fv_df.style.set_caption(f'Fort Vermillion (71024 / {FV_ICAO}) — {len(fv_records)} obs')
+    if _fv_df['Temp(C)'].notna().any():
+        _fv_styler = _fv_styler.background_gradient(subset=['Temp(C)','Dew(C)'], cmap='RdYlBu_r')
+    if _fv_df['SLP(hPa)'].notna().any():
+        _fv_styler = _fv_styler.background_gradient(subset=['SLP(hPa)'], cmap='coolwarm')
+    display(HTML(_fv_styler.format(na_rep='—', precision=1).to_html()))
+else:
+    display(HTML('<div style="font-family:monospace;color:#888;">Fort Vermillion — no data available</div>'))
+
+
+
+    
 
 
 
@@ -2300,6 +2766,350 @@ _fl = _style_raw(ua_raw_df.head(500)).to_html()  # cap at 500 rows for display
 
 
 
+
+# @title Rescue fetch — retry missing stations (rerun this cell as many times as needed)
+# ── Cell UA-3 . Re-fetch stations still missing data ───────────────────────
+
+import concurrent.futures
+import pandas as pd
+from IPython.display import display, HTML, Javascript
+
+def get_missing_station_hours(stations, hours, df):
+    have = set(zip(df['icao'], df['hour'])) if len(df) else set()
+    missing = []
+    for s in stations:
+        for h in hours:
+            if (s['id'], h) not in have:
+                missing.append((s, h))
+    return missing
+
+_missing = get_missing_station_hours(UPPER_AIR_STATIONS, UA_HOURS, ua_raw_df)
+
+if not _missing:
+    display(HTML('''
+    <div style="font-family:Courier New,monospace;border:3px solid #1a7a3a;
+                border-radius:8px;padding:10px 16px;margin:8px 0;background:#b6f5c8;">
+      <b style="color:#1a7a3a;">✔ All stations already have data — nothing to rescue.</b>
+    </div>
+    '''))
+else:
+    total = len(_missing)
+    done  = 0
+    row_id = 'ua3-row'
+    bar_id = 'ua3-bar'
+    stat_id = 'ua3-stat'
+
+    # ── initial table shell, one row per missing station-hour ─────────────
+    _init_rows = ''.join(
+        f'<tr id="{row_id}-{i}">'
+        f'<td style="padding:2px 8px;font-family:Courier New,monospace">{s["id"]}</td>'
+        f'<td style="padding:2px 8px;font-family:Courier New,monospace">{s.get("name","")}</td>'
+        f'<td style="padding:2px 8px;text-align:center">{h:02d}Z</td>'
+        f'<td id="{row_id}-{i}-status" style="padding:2px 8px;text-align:center;color:#999">pending…</td>'
+        f'</tr>\n'
+        for i, (s, h) in enumerate(_missing)
+    )
+
+    display(HTML(f'''
+    <div style="font-family:Courier New,monospace;font-size:12px;
+                background:#f8f8f8;border:1px solid #ccc;border-radius:8px;
+                padding:14px 18px;margin:8px 0;">
+      <div style="font-weight:bold;color:#1a4a8a;margin-bottom:8px;">
+        ↻ Rescue pass &mdash; {total} missing station-hour(s)
+      </div>
+      <div style="background:#e0e0e0;border-radius:4px;height:16px;width:100%;margin-bottom:6px;">
+        <div id="{bar_id}" style="background:#2266aa;height:16px;border-radius:4px;width:0%;
+             transition:width 0.25s;"></div>
+      </div>
+      <div id="{stat_id}" style="color:#555;font-size:11px;margin-bottom:8px;">
+        Initialising...
+      </div>
+      <div style="max-height:280px;overflow-y:auto;border:1px solid #ddd;border-radius:6px;">
+        <table style="border-collapse:collapse;font-size:11px;width:100%">
+          <thead style="position:sticky;top:0;background:#f0f4ff">
+            <tr>
+              <th style="text-align:left;padding:4px 8px">ICAO</th>
+              <th style="text-align:left;padding:4px 8px">Station</th>
+              <th style="padding:4px 8px">Hour</th>
+              <th style="padding:4px 8px">Status</th>
+            </tr>
+          </thead>
+          <tbody>{_init_rows}</tbody>
+        </table>
+      </div>
+    </div>
+    '''))
+
+    def _update_row(i, text, color, bg):
+        display(Javascript(f'''
+        (function(){{
+          var c=document.getElementById('{row_id}-{i}-status');
+          if(c){{c.textContent='{text}';c.style.color='{color}';c.style.background='{bg}';
+                 c.style.fontWeight='bold';}}
+        }})();
+        '''))
+
+    def _update_progress(rescued, failed_ct):
+        pct = int(done / total * 100) if total else 0
+        display(Javascript(f'''
+        (function(){{
+          var b=document.getElementById('{bar_id}');
+          var s=document.getElementById('{stat_id}');
+          if(b) b.style.width='{pct}%';
+          if(s) s.textContent='{done}/{total} ({pct}%)  ✔ {rescued} recovered  ✘ {failed_ct} still missing';
+        }})();
+        '''))
+
+    _rescued_rows  = []
+    _still_missing = []
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=UA_WORKERS) as ex:
+        fmap = {ex.submit(fetch_raw, s, h): i for i, (s, h) in enumerate(_missing)}
+        for fut in concurrent.futures.as_completed(fmap):
+            i = fmap[fut]
+            s, h = _missing[i]
+            done += 1
+            html = fut.result()
+            rows = parse_sounding(html, s, h) if html else []
+            if rows:
+                _rescued_rows.extend(rows)
+                _update_row(i, f'✔ recovered ({len(rows)} lvl)', '#1a5c1a', '#c8f0d0')
+            else:
+                _still_missing.append((s, h))
+                _update_row(i, '✘ no data', '#aa0000', '#ffd6cc')
+            _update_progress(len(_rescued_rows) and len(set((r['icao'], r['hour']) for r in _rescued_rows)) or 0,
+                              len(_still_missing))
+
+    # ── Merge rescued rows into raw_rows / ua_raw_df ───────────────────────
+    if _rescued_rows:
+        raw_rows.extend(_rescued_rows)
+        _cols = list(ua_raw_df.columns) if len(ua_raw_df.columns) else [
+            'icao','wmo','stn_name','lat','lon','valid_time','hour',
+            'PRES','HGHT','TEMP','DWPT','RELH','MIXR','DRCT','SPED','THTA','THTE','THTV'
+        ]
+        _new_df   = pd.DataFrame(_rescued_rows, columns=_cols)
+        ua_raw_df = pd.concat([ua_raw_df, _new_df], ignore_index=True)
+
+        _still_missing_keys = {(s['id'], h) for s, h in _still_missing}
+        for s, h in _missing:
+            if (s['id'], h) not in _still_missing_keys:
+                _status[(s['id'], h)] = '↻✔ recovered'
+
+    # ── Final summary banner ────────────────────────────────────────────
+    _fetched_now = total - len(_still_missing)
+    col = '#1a7a3a' if not _still_missing else '#cc4400'
+    bg  = '#b6f5c8' if not _still_missing else '#ffe8d6'
+
+    display(HTML(f'''
+    <div style="font-family:Courier New,monospace;font-size:13px;border:3px solid {col};
+                border-radius:8px;padding:10px 16px;margin:8px 0;background:{bg};">
+      <b style="color:{col};">
+        Rescue pass complete: {_fetched_now}/{total} recovered
+        {f"&mdash; {len(_still_missing)} still missing" if _still_missing else "&mdash; all recovered!"}
+      </b>
+      {'<div style="font-size:11px;font-weight:normal;color:#7a3300;margin-top:4px">Rerun this cell to retry again.</div>' if _still_missing else ''}
+    </div>
+    '''))
+
+    print(f'ua_raw_df now has {len(ua_raw_df)} rows, {ua_raw_df["icao"].nunique()} stations.')
+
+
+
+
+
+
+    # @title CORE Rescue mission — retry missing core stations (auto-runs up to 5 passes)
+# ── Cell UA-3 . Re-fetch stations still missing data ───────────────────────
+
+import concurrent.futures
+import pandas as pd
+from IPython.display import display, HTML, Javascript
+
+# ── Core rescue mission — station IDs to prioritize ────────────────────
+CORE_RESCUE_STATIONS = [
+    'YYE', 'WSE', 'ZXS', 'YVQ', 'YSM', 'TFX', 'WLW',
+    'YZT', 'UIL', 'YAK', 'ANN', 'PADQ', 'SLE', 'BOI',
+    'YQD', 'ANC', 'YEV', 'BRW',
+]
+
+MAX_RESCUE_PASSES = 5
+RESCUE_WORKERS    = 2
+RESCUE_TIMEOUT    = 20
+
+from urllib.parse import quote
+
+def _manual_check_url(stn, hour):
+    dt = get_sounding_dt(hour)
+    dt_str = f'{dt.strftime("%Y-%m-%d")} {hour}:00:00'
+    return f'{WYOMING_BASE}?datetime={quote(dt_str)}&id={stn["wmo"]}&src=BUFR&type=TEXT:LIST'
+
+def get_missing_station_hours(stations, hours, df):
+    have = set(zip(df['icao'], df['hour'])) if len(df) else set()
+    missing = []
+    for s in stations:
+        for h in hours:
+            if (s['id'], h) not in have:
+                missing.append((s, h))
+    return missing
+
+
+def _run_core_rescue_pass(pass_num, ua_raw_df):
+    _missing_all = get_missing_station_hours(UPPER_AIR_STATIONS, UA_HOURS, ua_raw_df)
+    _missing = [(s, h) for (s, h) in _missing_all if s['id'] in CORE_RESCUE_STATIONS]
+
+    if not _missing:
+        display(HTML('''
+        <div style="font-family:Courier New,monospace;border:3px solid #1a7a3a;
+                    border-radius:8px;padding:10px 16px;margin:8px 0;background:#b6f5c8;">
+          <b style="color:#1a7a3a;">✔ All core stations already have data — nothing to rescue.</b>
+        </div>
+        '''))
+        return ua_raw_df, True
+
+    total = len(_missing)
+    done  = 0
+    row_id = f'ua3-row-p{pass_num}'
+    bar_id = f'ua3-bar-p{pass_num}'
+    stat_id = f'ua3-stat-p{pass_num}'
+
+    # ── initial table shell, one row per missing station-hour ─────────────
+    _init_rows = ''.join(
+        f'<tr id="{row_id}-{i}">'
+        f'<td style="padding:2px 8px;font-family:Courier New,monospace">{s["id"]}</td>'
+        f'<td style="padding:2px 8px;font-family:Courier New,monospace">{s.get("name","")}</td>'
+        f'<td style="padding:2px 8px;text-align:center">{h:02d}Z</td>'
+        f'<td id="{row_id}-{i}-status" style="padding:2px 8px;text-align:center;color:#999">pending…</td>'
+        f'<td style="padding:2px 8px;text-align:center">'
+        f'<a href="{_manual_check_url(s, h)}" target="_blank" '
+        f'style="font-size:10px;color:#1a4a8a;text-decoration:none;border-bottom:1px dotted #1a4a8a;">check ↗</a>'
+        f'</td>'
+        f'</tr>\n'
+        for i, (s, h) in enumerate(_missing)
+    )
+
+    display(HTML(f'''
+    <div style="font-family:Courier New,monospace;font-size:12px;
+                background:#f8f8f8;border:1px solid #ccc;border-radius:8px;
+                padding:14px 18px;margin:8px 0;">
+      <div style="font-weight:bold;color:#1a4a8a;margin-bottom:8px;">
+        ↻ Core rescue mission &mdash; pass {pass_num}/{MAX_RESCUE_PASSES} &mdash; {total} missing station-hour(s)
+      </div>
+      <div style="background:#e0e0e0;border-radius:4px;height:16px;width:100%;margin-bottom:6px;">
+        <div id="{bar_id}" style="background:#2266aa;height:16px;border-radius:4px;width:0%;
+             transition:width 0.25s;"></div>
+      </div>
+      <div id="{stat_id}" style="color:#555;font-size:11px;margin-bottom:8px;">
+        Initialising...
+      </div>
+      <div style="max-height:280px;overflow-y:auto;border:1px solid #ddd;border-radius:6px;">
+        <table style="border-collapse:collapse;font-size:11px;width:100%">
+          <thead style="position:sticky;top:0;background:#f0f4ff">
+            <tr>
+              <th style="text-align:left;padding:4px 8px">ICAO</th>
+              <th style="text-align:left;padding:4px 8px">Station</th>
+              <th style="padding:4px 8px">Hour</th>
+              <th style="padding:4px 8px">Status</th>
+              <th style="padding:4px 8px">Manual Check</th>
+            </tr>
+          </thead>
+          <tbody>{_init_rows}</tbody>
+        </table>
+      </div>
+    </div>
+    '''))
+
+    def _update_row(i, text, color, bg):
+        display(Javascript(f'''
+        (function(){{
+          var c=document.getElementById('{row_id}-{i}-status');
+          if(c){{c.textContent='{text}';c.style.color='{color}';c.style.background='{bg}';
+                 c.style.fontWeight='bold';}}
+        }})();
+        '''))
+
+    def _update_progress(rescued, failed_ct):
+        pct = int(done / total * 100) if total else 0
+        display(Javascript(f'''
+        (function(){{
+          var b=document.getElementById('{bar_id}');
+          var s=document.getElementById('{stat_id}');
+          if(b) b.style.width='{pct}%';
+          if(s) s.textContent='{done}/{total} ({pct}%)  ✔ {rescued} recovered  ✘ {failed_ct} still missing';
+        }})();
+        '''))
+
+    _rescued_rows  = []
+    _still_missing = []
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=RESCUE_WORKERS) as ex:
+        fmap = {ex.submit(fetch_raw, s, h, RESCUE_TIMEOUT): i for i, (s, h) in enumerate(_missing)}
+        for fut in concurrent.futures.as_completed(fmap):
+            i = fmap[fut]
+            s, h = _missing[i]
+            done += 1
+            html = fut.result()
+            rows = parse_sounding(html, s, h) if html else []
+            if rows:
+                _rescued_rows.extend(rows)
+                _update_row(i, f'✔ recovered ({len(rows)} lvl)', '#1a5c1a', '#c8f0d0')
+            else:
+                _still_missing.append((s, h))
+                _update_row(i, '✘ no data', '#aa0000', '#ffd6cc')
+            _update_progress(len(_rescued_rows) and len(set((r['icao'], r['hour']) for r in _rescued_rows)) or 0,
+                              len(_still_missing))
+
+    # ── Merge rescued rows into raw_rows / ua_raw_df ───────────────────────
+    if _rescued_rows:
+        raw_rows.extend(_rescued_rows)
+        _cols = list(ua_raw_df.columns) if len(ua_raw_df.columns) else [
+            'icao','wmo','stn_name','lat','lon','valid_time','hour',
+            'PRES','HGHT','TEMP','DWPT','RELH','MIXR','DRCT','SPED','THTA','THTE','THTV'
+        ]
+        _new_df   = pd.DataFrame(_rescued_rows, columns=_cols)
+        ua_raw_df = pd.concat([ua_raw_df, _new_df], ignore_index=True)
+
+        _still_missing_keys = {(s['id'], h) for s, h in _still_missing}
+        for s, h in _missing:
+            if (s['id'], h) not in _still_missing_keys:
+                _status[(s['id'], h)] = '↻✔ recovered'
+
+    # ── Pass summary banner ────────────────────────────────────────────
+    _fetched_now = total - len(_still_missing)
+    col = '#1a7a3a' if not _still_missing else '#cc4400'
+    bg  = '#b6f5c8' if not _still_missing else '#ffe8d6'
+
+    display(HTML(f'''
+    <div style="font-family:Courier New,monospace;font-size:13px;border:3px solid {col};
+                border-radius:8px;padding:10px 16px;margin:8px 0;background:{bg};">
+      <b style="color:{col};">
+        Core rescue mission &mdash; pass {pass_num}/{MAX_RESCUE_PASSES} complete: {_fetched_now}/{total} recovered
+        {f"&mdash; {len(_still_missing)} still missing" if _still_missing else "&mdash; all core stations recovered!"}
+      </b>
+    </div>
+    '''))
+
+    print(f'ua_raw_df now has {len(ua_raw_df)} rows, {ua_raw_df["icao"].nunique()} stations.')
+
+    return ua_raw_df, (len(_still_missing) == 0)
+
+
+# ── Auto-run up to MAX_RESCUE_PASSES, stop early once all core stations recovered ──
+_all_done = False
+for _pass_num in range(1, MAX_RESCUE_PASSES + 1):
+    ua_raw_df, _all_done = _run_core_rescue_pass(_pass_num, ua_raw_df)
+    if _all_done:
+        break
+
+if not _all_done:
+    display(HTML(f'''
+    <div style="font-family:Courier New,monospace;font-size:12px;border:2px solid #cc4400;
+                border-radius:8px;padding:8px 14px;margin:8px 0;background:#ffe8d6;color:#7a3300;">
+      Reached {MAX_RESCUE_PASSES} passes &mdash; some core stations are still missing. Rerun this cell to keep trying.
+    </div>
+    '''))
+
+
+    
 
 
 
