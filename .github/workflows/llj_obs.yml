@@ -46,14 +46,31 @@ jobs:
           [ -f output/synoptic_map.html ] && cp output/synoptic_map.html pages/index.html || true
           [ -f output/ua_availability.html ] && cp output/ua_availability.html pages/ua_availability.html || true
           cp output/llj_obs/index.html pages/llj_obs/index.html
-          cp output/llj_obs/*.zip pages/llj_obs/ 2>/dev/null || true
+          shopt -s nullglob
+          for prefix in winds soundings; do
+            files=(output/llj_obs/${prefix}_*.zip)
+            [ ${#files[@]} -eq 0 ] && continue
+            latest=$(printf '%s\n' "${files[@]}" | sort | tail -n 1)
+            cp "$latest" pages/llj_obs/
+          done
+      # ── Prune the archive: keep the newest 7 zips of each type ──
+      - name: Prune old LLJ zips
+        run: |
+          shopt -s nullglob
+          for prefix in winds soundings; do
+            files=(output/llj_obs/${prefix}_*.zip)
+            n=${#files[@]}
+            if [ "$n" -gt 7 ]; then
+              printf '%s\n' "${files[@]}" | sort | head -n $((n-7)) | xargs -r rm -f --
+            fi
+          done
 
       # ── Commit the LLJ output back to the repo (archive) ──
       - name: Commit output to repository
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add output/llj_obs
+          git add -A output/llj_obs
           git diff --cached --quiet || \
             git commit -m "chore: update LLJ soundings $(date -u +'%Y-%m-%d %H%MZ')"
           git fetch origin main
