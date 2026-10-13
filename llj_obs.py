@@ -1279,7 +1279,13 @@ def _half_circle_svg(map_key, has00, has12, tag00="", tag12="", pw00=None, pw12=
 lats = [s["lat"] for s in UPPER_AIR_STATIONS]
 lons = [s["lon"] for s in UPPER_AIR_STATIONS]
 m = folium.Map(location=[sum(lats)/len(lats), sum(lons)/len(lons)],
-                zoom_start=3, tiles="CartoDB positron")
+                zoom_start=3, tiles=None)
+folium.TileLayer(
+    tiles='https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+    attr='Tiles &copy; Esri &mdash; Esri, HERE, Garmin, &copy; OpenStreetMap contributors',
+    name='Esri Light Gray',
+    max_zoom=16,
+).add_to(m)
 
 # embed both PROFILE and WINDS PNGs as a JS lookup, keyed "Name|Run|Type"
 png_lookup = {}
@@ -1428,7 +1434,7 @@ tephi_btn = ""
 if 'tephi_zip_b64' in dir() and 'tephi_zip_filename' in dir():
     tephi_btn = f"""
       <a download="{tephi_zip_filename}"
-         href="data:application/zip;base64,{tephi_zip_b64}"
+         href="{tephi_zip_filename}"
          style="display:inline-block;padding:6px 12px;background:#ff7f0e;
                 color:white;font-weight:bold;border-radius:5px;
                 text-decoration:none;font-size:11px;margin-top:6px;">
@@ -1440,7 +1446,7 @@ wind_btn = ""
 if 'wind_zip_b64' in dir() and 'wind_zip_filename' in dir():
     wind_btn = f"""
       <a download="{wind_zip_filename}"
-         href="data:application/zip;base64,{wind_zip_b64}"
+         href="{wind_zip_filename}"
          style="display:inline-block;padding:6px 12px;background:#1a6fb5;
                 color:white;font-weight:bold;border-radius:5px;
                 text-decoration:none;font-size:11px;margin-top:6px;margin-left:6px;">
