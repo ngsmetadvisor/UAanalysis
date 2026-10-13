@@ -2861,24 +2861,29 @@ ua_raw_df = pd.DataFrame(raw_rows, columns=[
 def _canonical_time(group):
     return group['valid_time'].value_counts().index[0]
 
-_canonical = ua_raw_df.groupby('hour').apply(_canonical_time).rename('canonical_time')
-ua_raw_df = ua_raw_df.merge(_canonical, on='hour')
+if ua_raw_df.empty:
+    print('\n⚠ 0 soundings retrieved from Wyoming — UA layers will be empty.')
+    ua_raw_df['is_stale'] = pd.Series(dtype=bool)
+else:
+    _canonical = (ua_raw_df.groupby('hour')['valid_time']
+                  .agg(lambda s: s.value_counts().index[0])
+                  .rename('canonical_time'))
+    ua_raw_df = ua_raw_df.merge(_canonical, on='hour')
 
-# Flag stale rows (valid_time doesn't match the canonical time for that hour)
-ua_raw_df['is_stale'] = ua_raw_df['valid_time'] != ua_raw_df['canonical_time']
+    # Flag stale rows (valid_time doesn't match the canonical time for that hour)
+    ua_raw_df['is_stale'] = ua_raw_df['valid_time'] != ua_raw_df['canonical_time']
 
-# Keep recovered (lookback=1) rows only for stations with no fresh data at all
-_fresh      = ua_raw_df[~ua_raw_df['is_stale']].copy()
-_stale      = ua_raw_df[ ua_raw_df['is_stale']].copy()
-_fresh_keys = set(zip(_fresh['icao'], _fresh['hour']))
-_stale_keys = set(zip(_stale['icao'], _stale['hour']))
-_keep_stale = _stale[
-    pd.MultiIndex.from_arrays([_stale['icao'], _stale['hour']]).isin(_stale_keys - _fresh_keys)
-].copy()
+    # Keep recovered (lookback=1) rows only for stations with no fresh data at all
+    _fresh      = ua_raw_df[~ua_raw_df['is_stale']].copy()
+    _stale      = ua_raw_df[ ua_raw_df['is_stale']].copy()
+    _fresh_keys = set(zip(_fresh['icao'], _fresh['hour']))
+    _stale_keys = set(zip(_stale['icao'], _stale['hour']))
+    _keep_stale = _stale[
+        pd.MultiIndex.from_arrays([_stale['icao'], _stale['hour']]).isin(_stale_keys - _fresh_keys)
+    ].copy()
 
-ua_raw_df = pd.concat([_fresh, _keep_stale], ignore_index=True)
-ua_raw_df = ua_raw_df.drop(columns=['canonical_time'])
-
+    ua_raw_df = pd.concat([_fresh, _keep_stale], ignore_index=True)
+    ua_raw_df = ua_raw_df.drop(columns=['canonical_time'])
 _stale_stns = ua_raw_df[ua_raw_df['is_stale']]['icao'].unique().tolist()
 print(f'  → {(~ua_raw_df["is_stale"]).sum()} fresh rows, '
       f'{ua_raw_df["is_stale"].sum()} stale rows dropped from stations: {_stale_stns or "none"}')
@@ -6545,8 +6550,10 @@ m.get_root().html.add_child(Element(
     '</script>\n'
 ))
 
-folium.TileLayer(tiles='https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-    attr='CartoDB Positron', name='White (CartoDB)', max_zoom=19).add_to(m)
+folium.TileLayer(
+    tiles='https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+    attr='Tiles &copy; Esri &mdash; Esri, HERE, Garmin, &copy; OpenStreetMap contributors',
+    name='White (Esri Light Gray)', max_zoom=16).add_to(m)
 folium.TileLayer(tiles='OpenStreetMap', name='OpenStreetMap', max_zoom=19).add_to(m)
 folium.TileLayer(
     tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
@@ -6859,6 +6866,24 @@ for _hour, _grp in ua_summary_df.groupby('hour'):
         })
     _ua_stn_data[_key] = _stns
 _ts_ua_stn_json_str = _json3.dumps(_ua_stn_data)
+
+# ---- UA STATIONS WITH NO DATA RETURNED -----------------------------------
+_ua_missing_data = {'0': [], '12': []}
+if 'UPPER_AIR_STATIONS' in globals():
+    for _key in ['0', '12']:
+        _have = {str(s['icao']).strip().upper() for s in _ua_stn_data.get(_key, [])}
+        _ua_missing_data[_key] = [
+            {'lat': float(s['lat']), 'lon': float(s['lon']),
+             'icao': s['id'], 'name': s['name'].strip()}
+            for s in UPPER_AIR_STATIONS
+            if s['id'].strip().upper() not in _have
+        ]
+    print(f"UA no-data stations: 00Z={len(_ua_missing_data['0'])}  12Z={len(_ua_missing_data['12'])}")
+    print(f"  00Z: {', '.join(s['icao'] for s in _ua_missing_data['0'])}")
+    print(f"  12Z: {', '.join(s['icao'] for s in _ua_missing_data['12'])}")
+else:
+    print("⚠ UPPER_AIR_STATIONS missing — no-data markers skipped.")
+_ts_ua_missing_json_str = _json3.dumps(_ua_missing_data)
 
 # ---- BUTTON BAR ----------------------------------------------------------
 
@@ -7284,6 +7309,23 @@ ts_js = (
     'var _synUAStnLayer       = null;\n'
     'var _synShowUAStns       = true;\n'
     'var _SYN_UA_STNS         = ' + _ts_ua_stn_json_str + ';\n'
+    'var _SYN_UA_MISSING      = ' + _ts_ua_missing_json_str + ';\n'
+    'function _synAddMissingUA(lg, uaKey) {\n'
+    '  (_SYN_UA_MISSING[uaKey] || []).forEach(function(d) {\n'
+    '    L.marker([d.lat, d.lon], {\n'
+    '      icon: L.divIcon({\n'
+    '        html: \'<div style="position:relative;width:6px;height:6px;box-sizing:border-box;\'\n'
+    '            + \'background:#aaa;border-radius:50%;border:1px solid #666;">\'\n'
+    '            + \'<span style="position:absolute;left:7px;top:-5px;font-size:9px;\'\n'
+    '            + \'font-family:Courier New,monospace;color:#777;white-space:nowrap;\'\n'
+    '            + \'text-shadow:1px 1px 0 #fff,-1px -1px 0 #fff,1px -1px 0 #fff,-1px 1px 0 #fff;">\'\n'
+    '            + d.icao + \'</span></div>\',\n'
+    '        iconSize:[6,6], iconAnchor:[3,3], className:""\n'
+    '      }), zIndexOffset:90\n'
+    '    }).bindTooltip(d.icao + " " + d.name + " — no data returned ("\n'
+    '        + (uaKey==="12" ? "12" : "00") + "Z)").addTo(lg);\n'
+    '  });\n'
+    '}\n'
     'var _synShowUAHght       = true;\n'
     'var _synShowUATemp       = true;\n'
     'var _synShowUAWC         = true;\n'   # follows Temp by default
@@ -7760,6 +7802,7 @@ ts_js = (
     '        }), zIndexOffset:100\n'
     '      }).bindPopup(d.popup,{maxWidth:320,closeButton:true}).bindTooltip(d.tip).addTo(_synUAStnLayer);\n'
     '    });\n'
+    '    _synAddMissingUA(_synUAStnLayer, _synUAHourKey);\n'
     '    if (_synShowUAStns) _synUAStnLayer.addTo(MAP);\n'
     '    return;\n'
     '  }\n'
@@ -7935,6 +7978,7 @@ ts_js = (
     '    L.marker([d.lat,d.lon],{icon:icon,zIndexOffset:100})\n'
     '     .bindPopup(d.popup,{maxWidth:320,closeButton:true}).bindTooltip(d.tip).addTo(_synUAStnLayer);\n'
     '  });\n'
+    '  _synAddMissingUA(_synUAStnLayer, uaKey);\n'
     '  if (_synShowUAStns) _synUAStnLayer.addTo(MAP);\n'
     '}\n'
 
@@ -9731,8 +9775,8 @@ var _SA_DATA = """ + _uasa_json_str + """;
 var _saCharts = {};
 
 var saMap = L.map('map', { center: [55, -100], zoom: 3 });
-L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-  attribution: '&copy; CartoDB', subdomains: 'abcd', maxZoom: 19
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+  attribution: 'Tiles &copy; Esri &mdash; Esri, HERE, Garmin, &copy; OpenStreetMap contributors', maxZoom: 16
 }).addTo(saMap);
 
 _SA_DATA.forEach(function(s) {
