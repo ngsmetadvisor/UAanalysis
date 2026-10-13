@@ -80,13 +80,21 @@ def fetch_sounding_json(station_id, dt):
     for fmt in ("fm94", "fm35"):
         url = windy_url(station_id, dt, fmt)
         try:
-            r = requests.get(url, timeout=30)
+            r = requests.get(url, timeout=30,
+                             headers={"User-Agent": "Mozilla/5.0 (X11; Linux x86_64)"})
             if r.status_code == 200:
-                gj = r.json()
+                try:
+                    gj = r.json()
+                except ValueError:
+                    print(f"  {station_id} {fmt}: HTTP 200 but not JSON — {r.text[:150]!r}")
+                    continue
                 if gj.get("features"):
                     return gj, fmt
+                print(f"  {station_id} {fmt}: HTTP 200 but no features — keys={list(gj)[:6]}")
+            else:
+                print(f"  {station_id} {fmt}: HTTP {r.status_code} — {r.text[:150]!r}")
         except Exception as e:
-            print(f"  fetch error ({fmt}): {e}")
+            print(f"  {station_id} fetch error ({fmt}): {e}")
     return None, None
 
 raw_geojson = {}   # name -> {run_label -> geojson dict}
