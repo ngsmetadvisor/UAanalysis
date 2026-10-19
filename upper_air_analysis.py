@@ -1871,6 +1871,9 @@ if fv_records:
 else:
     display(HTML('<div style="font-family:monospace;color:#888;">Fort Vermillion — no data available</div>'))
 
+# ── DISABLED: duplicate Cell 5b + Cell 5c (Fort Vermillion was being appended twice) ──
+_DISABLED_DUPLICATE_5B_5C = r'''
+
 
 
     
@@ -2237,6 +2240,8 @@ else:
     if grad_cols: _s = _s.background_gradient(subset=grad_cols, cmap='RdYlBu_r')
     if slp_cols:  _s = _s.background_gradient(subset=slp_cols,  cmap='coolwarm')
     _s = _s.format(na_rep='—', precision=1)
+'''
+# ── END DISABLED duplicate block ──
 
 
 #####################################################
@@ -5752,10 +5757,9 @@ except SystemExit:
 else:
     pass  # only reaches here if SKIP is False and no exception
 
-if not SKIP:
-    pass
-#     %matplotlib inline
-    import matplotlib.pyplot as plt
+# ── Diagnostic plot source — only runs when SKIP is False ──
+_DIAG_PLOT_SRC = r'''
+import matplotlib.pyplot as plt
 import matplotlib.patheffects as pe
 import numpy as np
 from scipy.interpolate import RBFInterpolator
@@ -5939,6 +5943,9 @@ for ax, _DIAG_LVL in zip(axes.flat, _LEVELS):
 
 plt.tight_layout(rect=[0, 0, 1, 0.98])
 plt.show()
+'''
+if not SKIP:
+    exec(_DIAG_PLOT_SRC)
 
 print('=' * 60)
 print('  BLOCK 06 — Surface & 850 hPa Convergence Zone Detection')
