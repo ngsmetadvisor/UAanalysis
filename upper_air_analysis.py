@@ -2631,6 +2631,8 @@ def get_sounding_dt(hour):
 
 
 # ── Step 2: fetch raw HTML for one station/hour ────────────────────────────
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)   # silence warnings from the uwyo fallback below
 _WY_DEBUG_MAX  = 8
 _wy_debug_n    = [0]
 _wy_debug_lock = threading.Lock()
@@ -2647,7 +2649,11 @@ def fetch_raw(stn, hour, timeout=None):
     dt_str = f'{dt.strftime("%Y-%m-%d")} {hour}:00:00'
     url    = f'{WYOMING_BASE}?datetime={quote(dt_str)}&id={stn["wmo"]}&src=BUFR&type=TEXT:LIST'
     try:
-        r   = requests.get(url, timeout=timeout or UA_TIMEOUT)
+        try:
+            r = requests.get(url, timeout=timeout or UA_TIMEOUT)
+        except requests.exceptions.SSLError:
+            # weather.uwyo.edu cert chain fails verification on the runner — public data, retry unverified
+            r = requests.get(url, timeout=timeout or UA_TIMEOUT, verify=False)
         txt = r.text
         if not r.ok or len(txt) < 300:
             _wy_debug(f'{stn["id"]} {hour:02d}Z status={r.status_code} len={len(txt)} url={url}\n'
