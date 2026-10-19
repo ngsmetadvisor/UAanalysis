@@ -1792,7 +1792,7 @@ def parse_synop_fm12(line, icao, st):
         elif re.match(r'^4\d{4}$', g):
             try:
                 raw = int(g[1:])
-                slp = (900 + raw/10) if raw >= 5000 else (1000 + raw/10)
+                slp = (raw / 10.0) if raw >= 5000 else (1000.0 + raw / 10.0)
             except: pass
 
     rh = None
@@ -2626,19 +2626,37 @@ def get_sounding_dt(hour):
 
 
 # ── Step 2: fetch raw HTML for one station/hour ────────────────────────────
+_WY_DEBUG_MAX  = 8
+_wy_debug_n    = [0]
+_wy_debug_lock = threading.Lock()
+
+def _wy_debug(msg):
+    with _wy_debug_lock:
+        if _wy_debug_n[0] >= _WY_DEBUG_MAX:
+            return
+        _wy_debug_n[0] += 1
+        print(f'DEBUG wyoming [{_wy_debug_n[0]}/{_WY_DEBUG_MAX}]: {msg}')
+
 def fetch_raw(stn, hour, timeout=None):
     dt     = get_sounding_dt(hour)
     dt_str = f'{dt.strftime("%Y-%m-%d")} {hour}:00:00'
     url    = f'{WYOMING_BASE}?datetime={quote(dt_str)}&id={stn["wmo"]}&src=BUFR&type=TEXT:LIST'
     try:
-        r = requests.get(url, timeout=timeout or UA_TIMEOUT)
-        if not r.ok or len(r.text) < 300:
-            return None
+        r   = requests.get(url, timeout=timeout or UA_TIMEOUT)
         txt = r.text
-        if 'Can\'t get' in txt or 'No Observation' in txt or 'ERROR' in txt:
+        if not r.ok or len(txt) < 300:
+            _wy_debug(f'{stn["id"]} {hour:02d}Z status={r.status_code} len={len(txt)} url={url}\n'
+                      f'    body[:200]: {txt[:200]!r}')
             return None
+        for _marker in ("Can't get", 'No Observation', 'ERROR'):
+            if _marker in txt:
+                _i = txt.find(_marker)
+                _wy_debug(f'{stn["id"]} {hour:02d}Z status={r.status_code} len={len(txt)} '
+                          f'rejected on {_marker!r}\n    context: {txt[max(0,_i-80):_i+120]!r}')
+                return None
         return txt
-    except Exception:
+    except Exception as e:
+        _wy_debug(f'{stn["id"]} {hour:02d}Z exception {type(e).__name__}: {e}')
         return None
 
 
@@ -3875,7 +3893,12 @@ if 'ua_raw_df' in globals():
 
         summary_rows.append(base)
 
-    ua_summary_df = pd.DataFrame(summary_rows).sort_values(['icao', 'hour']).reset_index(drop=True)
+    ua_summary_df = pd.DataFrame(summary_rows)
+    if ua_summary_df.empty:
+        print('⚠ No UA rows at all (Wyoming and EC both empty) — building empty summary table')
+        ua_summary_df = pd.DataFrame(columns=['icao','wmo','stn_name','lat','lon','valid_time','hour']
+                                     + [f'{f}_{lvl}' for lvl in STANDARD_LEVELS for f in FIELDS])
+    ua_summary_df = ua_summary_df.sort_values(['icao', 'hour']).reset_index(drop=True)
 
     # ── Only keep hours where at least one real sounding station has data ──
     # Real sounding stations are identified by source != 'ec_model' (or no source col)
@@ -5741,7 +5764,9 @@ from matplotlib.colors import LinearSegmentedColormap
 
 _DIAG_LON = (-145, -88)
 _DIAG_LAT = (28,    77)
-_DIAG_HR  = str(int(_ua_hours_available[-1]))  # change to [0] for 00Z
+_DIAG_HR  = str(int(_ua_hours_available[-1])) if _ua_hours_available else "12"  # change to [0] for 00Z
+if not _ua_hours_available:
+    print("⚠ No UA hours available — W/C diagnostic defaulting to 12Z (will show no data)")
 _LEVELS   = ['850', '700', '500', '250']
 
 _CMAP = LinearSegmentedColormap.from_list('ua_temp', [
