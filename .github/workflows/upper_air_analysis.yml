@@ -1,7 +1,7 @@
 name: Upper Air Analysis
 on:
   schedule:
-    # Runs daily at 14:00 UTC (1400Z)
+    # Runs twice daily at 01:27Z and 13:27Z
     # LLJ soundings: ~1.5-2h after the 00Z/12Z radiosonde launches
     - cron: '27 1 * * *'
     - cron: '27 13 * * *'
@@ -51,7 +51,8 @@ jobs:
           git diff --cached --quiet || \
             git commit -m "chore: update synoptic map $(date -u +'%Y-%m-%d %H%MZ')"
           git fetch origin main
-          git push --force-with-lease origin HEAD:main
+          git rebase origin/main
+          git push origin HEAD:main
       # ── Publish to GitHub Pages ───────────────────────────────────────────
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
