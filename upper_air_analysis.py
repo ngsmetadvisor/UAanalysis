@@ -5357,7 +5357,10 @@ def _build_contours_for_field(recs_df, field_col, interval, lvl_label,
 
 
 # ── Diagnostic ────────────────────────────────────────────────────────────
-_diag_hr = sorted(ua_summary_df['hour'].unique())[0]
+_diag_hours = sorted(ua_summary_df['hour'].unique()) if not ua_summary_df.empty else []
+_diag_hr = _diag_hours[0] if _diag_hours else None
+if _diag_hr is None:
+    print("⚠ ua_summary_df is empty (no real soundings) — UA diagnostics skipped")
 _diag_df = ua_summary_df[ua_summary_df['hour'] == _diag_hr].copy()
 _pts_d   = [(float(_row['lat']), float(_row['lon']), float(_row['TEMP_850']))
              for _, _row in _diag_df.iterrows()
