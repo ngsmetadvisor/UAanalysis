@@ -625,13 +625,18 @@ def load_stations(url, coverage='standard'):
 
     return stations
 
-STATIONS = load_stations(CSV_URL, COVERAGE)
-print(f'✓ Loaded {len(STATIONS)} stations ({COVERAGE} tier)')
+try:
+    STATIONS = load_stations(CSV_URL, COVERAGE)
+    print(f'✓ Loaded {len(STATIONS)} stations ({COVERAGE} tier)')
+except Exception as _st_ex:
+    print(f'⚠ Station list fetch failed ({_st_ex}) — continuing without METAR stations')
+    STATIONS = {}
 
 lats = [s['lat'] for s in STATIONS.values()]
 lons = [s['lon'] for s in STATIONS.values()]
-print(f'  Lat range: {min(lats):.1f}°N - {max(lats):.1f}°N')
-print(f'  Lon range: {min(lons):.1f}°E - {max(lons):.1f}°E')
+if lats:
+    print(f'  Lat range: {min(lats):.1f}°N - {max(lats):.1f}°N')
+    print(f'  Lon range: {min(lons):.1f}°E - {max(lons):.1f}°E')
 
 
 # ── NEW: Register EC model virtual stations into STATIONS ─────────────────────
@@ -3307,6 +3312,16 @@ import folium
 import pandas as pd
 import numpy as np
 
+
+# ── Hard stop: Wyoming soundings are the core product ─────────────────────
+REQUIRE_WYOMING = True   # set False to publish surface-only maps when Wyoming is down
+if REQUIRE_WYOMING and ua_raw_df.empty:
+    print('\n' + '=' * 60)
+    print('✘ ABORT: 0 Wyoming soundings after all rescue passes.')
+    print('  Not publishing — the last good map stays live on GitHub Pages.')
+    print('  Check the DEBUG wyoming lines above for the cause.')
+    print('=' * 60)
+    raise SystemExit(1)
 
 print('Upper Air stations data availability')
 
