@@ -3314,13 +3314,19 @@ import numpy as np
 
 
 # ── Hard stop: Wyoming soundings are the core product ─────────────────────
-REQUIRE_WYOMING = True   # set False to publish surface-only maps when Wyoming is down
-if REQUIRE_WYOMING and ua_raw_df.empty:
+REQUIRE_WYOMING      = True   # set False to publish surface-only maps when Wyoming is down
+MIN_WYOMING_STATIONS = 10     # fewer real sounding stations than this = failed run (76 defined)
+_wy_n_stations = ua_raw_df['icao'].nunique() if not ua_raw_df.empty else 0
+print(f'Wyoming sounding stations after rescue passes: {_wy_n_stations}')
+if REQUIRE_WYOMING and _wy_n_stations < MIN_WYOMING_STATIONS:
+    _wy_msg = (f'Wyoming returned {_wy_n_stations} sounding stations '
+               f'(minimum {MIN_WYOMING_STATIONS}) - map NOT published')
     print('\n' + '=' * 60)
-    print('✘ ABORT: 0 Wyoming soundings after all rescue passes.')
-    print('  Not publishing — the last good map stays live on GitHub Pages.')
+    print(f'✘ ABORT: {_wy_msg}')
+    print('  The last good map stays live on GitHub Pages.')
     print('  Check the DEBUG wyoming lines above for the cause.')
     print('=' * 60)
+    print(f'::error title=Wyoming soundings missing::{_wy_msg}')
     raise SystemExit(1)
 
 print('Upper Air stations data availability')
