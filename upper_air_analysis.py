@@ -2609,8 +2609,8 @@ import pandas as pd
 # ── Config ─────────────────────────────────────────────────────────────────
 WYOMING_BASE = 'https://weather.uwyo.edu/wsgi/sounding'
 UA_HOURS     = [0, 12]
-UA_WORKERS   = 12
-UA_TIMEOUT   = 12
+UA_WORKERS   = 6
+UA_TIMEOUT   = 25
 
 
 
